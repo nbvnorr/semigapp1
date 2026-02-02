@@ -185,7 +185,10 @@ abstract class Base_Gateway {
     }
 
     /**
-     * Make API request
+     * Make API request with comprehensive error handling
+     *
+     * Wraps the HTTP request in try/catch to handle any unexpected errors
+     * and provides detailed error logging for debugging.
      *
      * @param string $endpoint API endpoint.
      * @param array  $data     Request data.
@@ -193,33 +196,127 @@ abstract class Base_Gateway {
      * @return array|WP_Error Response or error.
      */
     protected function api_request($endpoint, $data = array(), $method = 'POST') {
-        $args = array(
-            'method' => $method,
-            'timeout' => 30,
-            'headers' => $this->get_api_headers(),
+        try {
+            $args = array(
+                'method' => $method,
+                'timeout' => 30,
+                'headers' => $this->get_api_headers(),
+                'sslverify' => true,
+            );
+
+            if (!empty($data) && in_array($method, array('POST', 'PUT', 'PATCH'))) {
+                $args['body'] = wp_json_encode($data);
+            }
+
+            $response = wp_remote_request($endpoint, $args);
+
+            // Handle WP_Error from WordPress HTTP API
+            if (is_wp_error($response)) {
+                $this->log('API connection error', array(
+                    'endpoint' => $endpoint,
+                    'error_code' => $response->get_error_code(),
+                    'error_message' => $response->get_error_message(),
+                ));
+                return new \WP_Error(
+                    'gateway_connection_error',
+                    sprintf(
+                        __('Payment gateway connection failed: %s', 'semigapp'),
+                        $response->get_error_message()
+                    )
+                );
+            }
+
+            $status_code = wp_remote_retrieve_response_code($response);
+            $body = wp_remote_retrieve_body($response);
+            $decoded = json_decode($body, true);
+
+            // Handle JSON decode errors
+            if (json_last_error() !== JSON_ERROR_NONE && !empty($body)) {
+                $this->log('API JSON decode error', array(
+                    'endpoint' => $endpoint,
+                    'status' => $status_code,
+                    'body' => substr($body, 0, 500),
+                    'json_error' => json_last_error_msg(),
+                ));
+                return new \WP_Error(
+                    'gateway_response_error',
+                    __('Invalid response from payment gateway.', 'semigapp')
+                );
+            }
+
+            // Log response (without sensitive data in production)
+            $this->log('API response', array(
+                'endpoint' => $endpoint,
+                'status' => $status_code,
+                'success' => $status_code >= 200 && $status_code < 300,
+            ));
+
+            // Handle HTTP error status codes
+            if ($status_code >= 400) {
+                $error_message = $this->extract_error_message($decoded, $status_code);
+                return new \WP_Error(
+                    'gateway_api_error',
+                    $error_message,
+                    array('status_code' => $status_code, 'response' => $decoded)
+                );
+            }
+
+            return $decoded ?: array();
+
+        } catch (\Exception $e) {
+            // Catch any unexpected exceptions
+            $this->log('API exception', array(
+                'endpoint' => $endpoint,
+                'exception' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ));
+
+            return new \WP_Error(
+                'gateway_exception',
+                __('An unexpected error occurred while processing payment. Please try again.', 'semigapp'),
+                array('exception' => $e->getMessage())
+            );
+        }
+    }
+
+    /**
+     * Extract error message from API response
+     *
+     * @param array|null $decoded     Decoded response body.
+     * @param int        $status_code HTTP status code.
+     * @return string Error message.
+     */
+    private function extract_error_message($decoded, $status_code) {
+        // Try common error response formats
+        if (is_array($decoded)) {
+            if (isset($decoded['error_message'])) {
+                return $decoded['error_message'];
+            }
+            if (isset($decoded['error']['message'])) {
+                return $decoded['error']['message'];
+            }
+            if (isset($decoded['message'])) {
+                return $decoded['message'];
+            }
+            if (isset($decoded['error_description'])) {
+                return $decoded['error_description'];
+            }
+        }
+
+        // Return generic message based on status code
+        $status_messages = array(
+            400 => __('Invalid request to payment gateway.', 'semigapp'),
+            401 => __('Payment gateway authentication failed.', 'semigapp'),
+            403 => __('Payment gateway access denied.', 'semigapp'),
+            404 => __('Payment resource not found.', 'semigapp'),
+            500 => __('Payment gateway server error. Please try again.', 'semigapp'),
+            502 => __('Payment gateway temporarily unavailable.', 'semigapp'),
+            503 => __('Payment gateway is currently unavailable.', 'semigapp'),
         );
 
-        if (!empty($data) && in_array($method, array('POST', 'PUT', 'PATCH'))) {
-            $args['body'] = wp_json_encode($data);
-        }
-
-        $response = wp_remote_request($endpoint, $args);
-
-        if (is_wp_error($response)) {
-            $this->log('API error', array('error' => $response->get_error_message()));
-            return $response;
-        }
-
-        $body = wp_remote_retrieve_body($response);
-        $decoded = json_decode($body, true);
-
-        $this->log('API response', array(
-            'endpoint' => $endpoint,
-            'status' => wp_remote_retrieve_response_code($response),
-            'body' => $decoded,
-        ));
-
-        return $decoded ?: array();
+        return $status_messages[$status_code]
+            ?? sprintf(__('Payment gateway error (HTTP %d).', 'semigapp'), $status_code);
     }
 
     /**

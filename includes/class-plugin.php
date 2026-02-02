@@ -103,11 +103,31 @@ class Plugin {
         // Initialize settings
         Settings::get_instance();
 
+        // Initialize logger
+        Logger::get_instance();
+
         // Initialize assets handler
         Assets::get_instance();
 
         // Initialize email handler
         Emails::get_instance();
+
+        // Set up error handler for uncaught exceptions
+        $this->setup_error_handler();
+    }
+
+    /**
+     * Set up global error handler for logging
+     */
+    private function setup_error_handler() {
+        // Only set up custom error handling if logging is enabled
+        set_exception_handler(function($exception) {
+            $logger = Logger::get_instance();
+            $logger->exception($exception);
+
+            // Re-throw to allow WordPress default handling
+            throw $exception;
+        });
     }
 
     /**

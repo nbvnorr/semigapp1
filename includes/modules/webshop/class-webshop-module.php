@@ -57,6 +57,13 @@ class Webshop_Module extends Base_Module {
     private $cart = array();
 
     /**
+     * Cart session key (unique per visitor)
+     *
+     * @var string
+     */
+    private $cart_key = '';
+
+    /**
      * Initialize the module
      */
     public function init() {
@@ -78,6 +85,12 @@ class Webshop_Module extends Base_Module {
         // Email notifications
         add_action('semigapp_order_created', array($this, 'notify_order_created'), 10, 1);
         add_action('semigapp_order_status_changed', array($this, 'notify_order_status_changed'), 10, 3);
+
+        // Clean up expired cart transients daily
+        add_action('semigapp_daily_cleanup', array($this, 'cleanup_expired_carts'));
+
+        // Migrate guest cart to user cart on login
+        add_action('wp_login', array($this, 'migrate_cart_on_login'), 10, 2);
     }
 
     /**
@@ -108,21 +121,135 @@ class Webshop_Module extends Base_Module {
     }
 
     /**
-     * Initialize cart from session
+     * Initialize cart using WordPress transients (no PHP sessions)
+     *
+     * Uses a unique cart key stored in a cookie to identify the cart.
+     * For logged-in users, uses user ID for consistent cart across devices.
      */
     private function init_cart() {
-        if (!session_id()) {
-            session_start();
-        }
-
-        $this->cart = isset($_SESSION['semigapp_cart']) ? $_SESSION['semigapp_cart'] : array();
+        $this->cart_key = $this->get_cart_key();
+        $this->cart = $this->load_cart_from_transient();
     }
 
     /**
-     * Save cart to session
+     * Get or generate a unique cart key
+     *
+     * For logged-in users: uses user ID
+     * For guests: uses a cookie-based unique identifier
+     *
+     * @return string Cart key.
+     */
+    private function get_cart_key() {
+        // For logged-in users, use their user ID
+        if (is_user_logged_in()) {
+            return 'user_' . get_current_user_id();
+        }
+
+        // For guests, use a cookie-based key
+        $cookie_name = 'semigapp_cart_key';
+
+        if (isset($_COOKIE[$cookie_name]) && !empty($_COOKIE[$cookie_name])) {
+            return sanitize_text_field($_COOKIE[$cookie_name]);
+        }
+
+        // Generate a new unique key for guest
+        $cart_key = 'guest_' . wp_generate_password(32, false);
+
+        // Set cookie for 30 days (only if headers not sent)
+        if (!headers_sent()) {
+            setcookie(
+                $cookie_name,
+                $cart_key,
+                time() + (30 * DAY_IN_SECONDS),
+                COOKIEPATH,
+                COOKIE_DOMAIN,
+                is_ssl(),
+                true // HttpOnly
+            );
+        }
+
+        return $cart_key;
+    }
+
+    /**
+     * Load cart from WordPress transient
+     *
+     * @return array Cart contents.
+     */
+    private function load_cart_from_transient() {
+        $cart = get_transient('semigapp_cart_' . $this->cart_key);
+        return is_array($cart) ? $cart : array();
+    }
+
+    /**
+     * Save cart to WordPress transient
+     *
+     * Cart expires after 7 days of inactivity.
      */
     private function save_cart() {
-        $_SESSION['semigapp_cart'] = $this->cart;
+        set_transient(
+            'semigapp_cart_' . $this->cart_key,
+            $this->cart,
+            7 * DAY_IN_SECONDS
+        );
+    }
+
+    /**
+     * Migrate guest cart to user cart after login
+     *
+     * Called via action hook when user logs in.
+     *
+     * @param string  $user_login Username.
+     * @param WP_User $user       User object.
+     */
+    public function migrate_cart_on_login($user_login, $user) {
+        $cookie_name = 'semigapp_cart_key';
+
+        if (isset($_COOKIE[$cookie_name]) && !empty($_COOKIE[$cookie_name])) {
+            $guest_key = sanitize_text_field($_COOKIE[$cookie_name]);
+            $guest_cart = get_transient('semigapp_cart_' . $guest_key);
+
+            if (!empty($guest_cart) && is_array($guest_cart)) {
+                $user_key = 'user_' . $user->ID;
+                $user_cart = get_transient('semigapp_cart_' . $user_key);
+
+                // Merge guest cart into user cart (guest items take precedence for quantities)
+                if (is_array($user_cart)) {
+                    foreach ($guest_cart as $key => $item) {
+                        $user_cart[$key] = $item;
+                    }
+                } else {
+                    $user_cart = $guest_cart;
+                }
+
+                set_transient('semigapp_cart_' . $user_key, $user_cart, 7 * DAY_IN_SECONDS);
+
+                // Delete guest cart
+                delete_transient('semigapp_cart_' . $guest_key);
+            }
+
+            // Clear the guest cookie
+            if (!headers_sent()) {
+                setcookie($cookie_name, '', time() - 3600, COOKIEPATH, COOKIE_DOMAIN);
+            }
+        }
+    }
+
+    /**
+     * Cleanup expired cart transients (called by cron)
+     *
+     * WordPress handles transient expiration automatically, but this
+     * helps clean up orphaned transients from the database.
+     */
+    public function cleanup_expired_carts() {
+        global $wpdb;
+
+        // Delete expired transients with our prefix
+        $wpdb->query(
+            "DELETE FROM {$wpdb->options}
+             WHERE option_name LIKE '_transient_semigapp_cart_%'
+             AND option_name NOT LIKE '_transient_timeout_%'"
+        );
     }
 
     /**
@@ -223,6 +350,7 @@ class Webshop_Module extends Base_Module {
         $product_id = $this->db->insert('products', $sanitized);
 
         if ($product_id) {
+            $this->clear_products_cache();
             $this->log_activity('product', $product_id, 'created', 'Product created');
             do_action('semigapp_product_created', $product_id, $sanitized);
         }
@@ -279,6 +407,7 @@ class Webshop_Module extends Base_Module {
         $result = $this->db->update('products', $sanitized, array('id' => $product_id));
 
         if ($result !== false) {
+            $this->clear_products_cache();
             $this->log_activity('product', $product_id, 'updated', 'Product updated');
             do_action('semigapp_product_updated', $product_id, $sanitized, $old_product);
         }
@@ -302,6 +431,7 @@ class Webshop_Module extends Base_Module {
         $result = $this->db->delete('products', array('id' => $product_id));
 
         if ($result) {
+            $this->clear_products_cache();
             $this->log_activity('product', $product_id, 'deleted', 'Product deleted');
             do_action('semigapp_product_deleted', $product_id, $product);
         }
@@ -392,13 +522,44 @@ class Webshop_Module extends Base_Module {
             $args['search_columns'] = array('name', 'description', 'short_description', 'sku');
         }
 
+        // Generate cache key based on args (skip cache for searches)
+        $use_cache = empty($args['search']);
+        $cache_key = $use_cache ? 'semigapp_products_' . md5(serialize($args)) : '';
+
+        if ($use_cache) {
+            $products = get_transient($cache_key);
+            if ($products !== false) {
+                return $products;
+            }
+        }
+
         $products = $this->db->get_results('products', $args);
 
         foreach ($products as &$product) {
             $product = $this->prepare_product($product);
         }
 
+        // Cache for 30 minutes (skip caching search results)
+        if ($use_cache && !empty($products)) {
+            set_transient($cache_key, $products, 30 * MINUTE_IN_SECONDS);
+        }
+
         return $products;
+    }
+
+    /**
+     * Clear products cache
+     *
+     * Called when products are created/updated/deleted.
+     */
+    public function clear_products_cache() {
+        global $wpdb;
+
+        $wpdb->query(
+            "DELETE FROM {$wpdb->options}
+             WHERE option_name LIKE '_transient_semigapp_products_%'
+             OR option_name LIKE '_transient_timeout_semigapp_products_%'"
+        );
     }
 
     /**
@@ -881,12 +1042,51 @@ class Webshop_Module extends Base_Module {
             'where' => array('order_id' => $order_id),
         ));
 
+        if (empty($items)) {
+            return array();
+        }
+
+        // Batch load products to avoid N+1 query
+        $product_ids = array_unique(wp_list_pluck($items, 'product_id'));
+        $products = $this->get_products_by_ids($product_ids);
+        $products_by_id = array();
+        foreach ($products as $product) {
+            $products_by_id[$product->id] = $product;
+        }
+
         foreach ($items as &$item) {
             $item->metadata = json_decode($item->metadata, true) ?: array();
-            $item->product = $this->get_product($item->product_id);
+            $item->product = $products_by_id[$item->product_id] ?? null;
         }
 
         return $items;
+    }
+
+    /**
+     * Get products by IDs (batch query)
+     *
+     * @param array $ids Product IDs.
+     * @return array Products.
+     */
+    private function get_products_by_ids($ids) {
+        if (empty($ids)) {
+            return array();
+        }
+
+        global $wpdb;
+        $table = $this->db->get_table('products');
+        $placeholders = implode(',', array_fill(0, count($ids), '%d'));
+
+        $products = $wpdb->get_results($wpdb->prepare(
+            "SELECT * FROM $table WHERE id IN ($placeholders)",
+            $ids
+        ));
+
+        foreach ($products as &$product) {
+            $product = $this->prepare_product($product);
+        }
+
+        return $products;
     }
 
     /**
@@ -908,11 +1108,71 @@ class Webshop_Module extends Base_Module {
 
         $orders = $this->db->get_results('orders', $args);
 
+        if (empty($orders)) {
+            return array();
+        }
+
+        // Batch load all order items to avoid N+1 query
+        $order_ids = wp_list_pluck($orders, 'id');
+        $all_items = $this->get_items_for_orders($order_ids);
+
+        // Group items by order_id
+        $items_by_order = array();
+        foreach ($all_items as $item) {
+            if (!isset($items_by_order[$item->order_id])) {
+                $items_by_order[$item->order_id] = array();
+            }
+            $items_by_order[$item->order_id][] = $item;
+        }
+
         foreach ($orders as &$order) {
-            $order->items = $this->get_order_items($order->id);
+            $order->billing_address = json_decode($order->billing_address, true) ?: array();
+            $order->shipping_address = json_decode($order->shipping_address, true) ?: array();
+            $order->items = $items_by_order[$order->id] ?? array();
+            $order->customer = $order->user_id ? get_userdata($order->user_id) : null;
         }
 
         return $orders;
+    }
+
+    /**
+     * Get items for multiple orders (batch query)
+     *
+     * @param array $order_ids Order IDs.
+     * @return array Order items with products.
+     */
+    private function get_items_for_orders($order_ids) {
+        if (empty($order_ids)) {
+            return array();
+        }
+
+        global $wpdb;
+        $items_table = $this->db->get_table('order_items');
+        $placeholders = implode(',', array_fill(0, count($order_ids), '%d'));
+
+        $items = $wpdb->get_results($wpdb->prepare(
+            "SELECT * FROM $items_table WHERE order_id IN ($placeholders)",
+            $order_ids
+        ));
+
+        if (empty($items)) {
+            return array();
+        }
+
+        // Batch load all products
+        $product_ids = array_unique(wp_list_pluck($items, 'product_id'));
+        $products = $this->get_products_by_ids($product_ids);
+        $products_by_id = array();
+        foreach ($products as $product) {
+            $products_by_id[$product->id] = $product;
+        }
+
+        foreach ($items as &$item) {
+            $item->metadata = json_decode($item->metadata, true) ?: array();
+            $item->product = $products_by_id[$item->product_id] ?? null;
+        }
+
+        return $items;
     }
 
     /**

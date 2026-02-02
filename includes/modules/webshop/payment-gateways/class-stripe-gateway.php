@@ -102,7 +102,7 @@ class Stripe_Gateway extends Base_Gateway {
     }
 
     /**
-     * Make Stripe API request
+     * Make Stripe API request with error handling
      *
      * @param string $endpoint API endpoint.
      * @param array  $data     Request data.
@@ -110,37 +110,76 @@ class Stripe_Gateway extends Base_Gateway {
      * @return array|WP_Error Response or error.
      */
     private function stripe_api_request($endpoint, $data = array(), $method = 'POST') {
-        $args = array(
-            'method' => $method,
-            'timeout' => 30,
-            'headers' => $this->get_api_headers(),
-        );
+        try {
+            $args = array(
+                'method' => $method,
+                'timeout' => 30,
+                'headers' => $this->get_api_headers(),
+            );
 
-        if (!empty($data) && in_array($method, array('POST', 'PUT', 'PATCH'))) {
-            $args['body'] = $data;
+            if (!empty($data) && in_array($method, array('POST', 'PUT', 'PATCH'))) {
+                $args['body'] = $data;
+            }
+
+            $response = wp_remote_request($this->api_url . $endpoint, $args);
+
+            if (is_wp_error($response)) {
+                $this->log('Stripe API error', array(
+                    'endpoint' => $endpoint,
+                    'error' => $response->get_error_message(),
+                    'error_code' => $response->get_error_code(),
+                ));
+                return $response;
+            }
+
+            $status_code = wp_remote_retrieve_response_code($response);
+            $body = wp_remote_retrieve_body($response);
+            $decoded = json_decode($body, true);
+
+            // Log for debugging (remove sensitive data in production)
+            $this->log('Stripe API response', array(
+                'endpoint' => $endpoint,
+                'status' => $status_code,
+                'success' => !isset($decoded['error']),
+            ));
+
+            // Handle HTTP errors
+            if ($status_code >= 400) {
+                $error_message = isset($decoded['error']['message'])
+                    ? $decoded['error']['message']
+                    : sprintf(__('Stripe API error (HTTP %d)', 'semigapp'), $status_code);
+
+                return new \WP_Error(
+                    'stripe_http_error',
+                    $error_message,
+                    array('status_code' => $status_code)
+                );
+            }
+
+            if (isset($decoded['error'])) {
+                return new \WP_Error(
+                    'stripe_error',
+                    $decoded['error']['message'],
+                    array('type' => $decoded['error']['type'] ?? 'unknown')
+                );
+            }
+
+            return $decoded ?: array();
+
+        } catch (\Exception $e) {
+            $this->log('Stripe API exception', array(
+                'endpoint' => $endpoint,
+                'exception' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ));
+
+            return new \WP_Error(
+                'stripe_exception',
+                __('An unexpected error occurred while processing payment.', 'semigapp'),
+                array('exception' => $e->getMessage())
+            );
         }
-
-        $response = wp_remote_request($this->api_url . $endpoint, $args);
-
-        if (is_wp_error($response)) {
-            $this->log('Stripe API error', array('error' => $response->get_error_message()));
-            return $response;
-        }
-
-        $body = wp_remote_retrieve_body($response);
-        $decoded = json_decode($body, true);
-
-        $this->log('Stripe API response', array(
-            'endpoint' => $endpoint,
-            'status' => wp_remote_retrieve_response_code($response),
-            'body' => $decoded,
-        ));
-
-        if (isset($decoded['error'])) {
-            return new \WP_Error('stripe_error', $decoded['error']['message']);
-        }
-
-        return $decoded ?: array();
     }
 
     /**

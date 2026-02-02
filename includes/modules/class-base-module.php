@@ -131,20 +131,72 @@ abstract class Base_Module {
     /**
      * Get client IP address
      *
+     * Validates IP addresses and handles proxy headers securely.
+     * Only trusts X-Forwarded-For if site is configured behind a trusted proxy.
+     *
      * @return string IP address.
      */
     protected function get_client_ip() {
         $ip = '';
 
-        if (!empty($_SERVER['HTTP_CLIENT_IP'])) {
-            $ip = sanitize_text_field(wp_unslash($_SERVER['HTTP_CLIENT_IP']));
-        } elseif (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-            $ip = sanitize_text_field(wp_unslash($_SERVER['HTTP_X_FORWARDED_FOR']));
-        } elseif (!empty($_SERVER['REMOTE_ADDR'])) {
+        // Check trusted proxy headers only if configured
+        $trusted_proxies = apply_filters('semigapp_trusted_proxy_ips', array());
+        $is_behind_trusted_proxy = !empty($trusted_proxies) &&
+            isset($_SERVER['REMOTE_ADDR']) &&
+            in_array($_SERVER['REMOTE_ADDR'], $trusted_proxies, true);
+
+        if ($is_behind_trusted_proxy) {
+            // Only trust forwarded headers from known proxies
+            if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+                // X-Forwarded-For can contain multiple IPs, get the first (client) IP
+                $forwarded_ips = explode(',', sanitize_text_field(wp_unslash($_SERVER['HTTP_X_FORWARDED_FOR'])));
+                $ip = trim($forwarded_ips[0]);
+            } elseif (!empty($_SERVER['HTTP_X_REAL_IP'])) {
+                $ip = sanitize_text_field(wp_unslash($_SERVER['HTTP_X_REAL_IP']));
+            }
+        }
+
+        // Fall back to REMOTE_ADDR (most secure, cannot be spoofed)
+        if (empty($ip) && !empty($_SERVER['REMOTE_ADDR'])) {
             $ip = sanitize_text_field(wp_unslash($_SERVER['REMOTE_ADDR']));
         }
 
+        // Validate the IP address format
+        $ip = $this->validate_ip_address($ip);
+
         return $ip;
+    }
+
+    /**
+     * Validate IP address format
+     *
+     * Ensures the IP address is valid IPv4 or IPv6.
+     *
+     * @param string $ip IP address to validate.
+     * @return string Valid IP or empty string if invalid.
+     */
+    private function validate_ip_address($ip) {
+        if (empty($ip)) {
+            return '';
+        }
+
+        // Strip port number if present (e.g., "192.168.1.1:8080")
+        if (strpos($ip, ':') !== false && substr_count($ip, ':') === 1) {
+            $ip = explode(':', $ip)[0];
+        }
+
+        // Validate IPv4
+        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+            return $ip;
+        }
+
+        // Validate IPv6
+        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+            return $ip;
+        }
+
+        // Invalid IP address
+        return '';
     }
 
     /**

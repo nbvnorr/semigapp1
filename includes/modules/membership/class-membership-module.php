@@ -130,6 +130,7 @@ class Membership_Module extends Base_Module {
         $level_id = $this->db->insert('membership_levels', $sanitized);
 
         if ($level_id) {
+            $this->clear_levels_cache();
             $this->log_activity('membership_level', $level_id, 'created', 'Membership level created');
             do_action('semigapp_membership_level_created', $level_id, $sanitized);
         }
@@ -171,6 +172,7 @@ class Membership_Module extends Base_Module {
         $result = $this->db->update('membership_levels', $sanitized, array('id' => $level_id));
 
         if ($result !== false) {
+            $this->clear_levels_cache();
             $this->log_activity('membership_level', $level_id, 'updated', 'Membership level updated');
             do_action('semigapp_membership_level_updated', $level_id, $sanitized, $old_level);
         }
@@ -194,6 +196,7 @@ class Membership_Module extends Base_Module {
         $result = $this->db->delete('membership_levels', array('id' => $level_id));
 
         if ($result) {
+            $this->clear_levels_cache();
             $this->log_activity('membership_level', $level_id, 'deleted', 'Membership level deleted');
             do_action('semigapp_membership_level_deleted', $level_id);
         }
@@ -251,15 +254,79 @@ class Membership_Module extends Base_Module {
 
         $args = wp_parse_args($args, $defaults);
 
-        $levels = $this->db->get_results('membership_levels', $args);
+        // Generate cache key based on args
+        $cache_key = 'semigapp_levels_' . md5(serialize($args));
 
-        foreach ($levels as &$level) {
-            $level->features = json_decode($level->features, true) ?: array();
-            $level->permissions = json_decode($level->permissions, true) ?: array();
-            $level->member_count = $this->db->count('members', array('membership_level_id' => $level->id));
+        // Try to get from cache first
+        $levels = get_transient($cache_key);
+
+        if ($levels === false) {
+            $levels = $this->db->get_results('membership_levels', $args);
+
+            if (!empty($levels)) {
+                // Get all member counts in one query to avoid N+1
+                $level_ids = wp_list_pluck($levels, 'id');
+                $member_counts = $this->get_member_counts_by_level($level_ids);
+
+                foreach ($levels as &$level) {
+                    $level->features = json_decode($level->features, true) ?: array();
+                    $level->permissions = json_decode($level->permissions, true) ?: array();
+                    $level->member_count = $member_counts[$level->id] ?? 0;
+                }
+            }
+
+            // Cache for 1 hour
+            set_transient($cache_key, $levels, HOUR_IN_SECONDS);
         }
 
         return $levels;
+    }
+
+    /**
+     * Get member counts grouped by level (fixes N+1 query)
+     *
+     * @param array $level_ids Array of level IDs.
+     * @return array Associative array of level_id => count.
+     */
+    private function get_member_counts_by_level($level_ids) {
+        if (empty($level_ids)) {
+            return array();
+        }
+
+        global $wpdb;
+        $table = $this->db->get_table('members');
+        $placeholders = implode(',', array_fill(0, count($level_ids), '%d'));
+
+        $results = $wpdb->get_results($wpdb->prepare(
+            "SELECT membership_level_id, COUNT(*) as count
+             FROM $table
+             WHERE membership_level_id IN ($placeholders)
+             GROUP BY membership_level_id",
+            $level_ids
+        ));
+
+        $counts = array();
+        foreach ($results as $row) {
+            $counts[$row->membership_level_id] = (int) $row->count;
+        }
+
+        return $counts;
+    }
+
+    /**
+     * Clear membership levels cache
+     *
+     * Called when levels are created/updated/deleted.
+     */
+    public function clear_levels_cache() {
+        global $wpdb;
+
+        // Delete all level transients
+        $wpdb->query(
+            "DELETE FROM {$wpdb->options}
+             WHERE option_name LIKE '_transient_semigapp_levels_%'
+             OR option_name LIKE '_transient_timeout_semigapp_levels_%'"
+        );
     }
 
     /**
