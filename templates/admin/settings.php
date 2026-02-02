@@ -205,6 +205,102 @@ $settings = \SemigApp\Settings::get_instance();
                     </div>
                 </div>
 
+            <?php elseif ($tab === 'events') : ?>
+                <div class="semigapp-settings-section">
+                    <h3><?php esc_html_e('General Event Settings', 'semigapp'); ?></h3>
+
+                    <div class="semigapp-form-row">
+                        <label>
+                            <input type="checkbox" name="semigapp_events_settings[enable_registration]" value="1"
+                                   <?php checked($settings->get('events.enable_registration', true)); ?>>
+                            <?php esc_html_e('Enable Event Registration', 'semigapp'); ?>
+                        </label>
+                    </div>
+
+                    <div class="semigapp-form-row">
+                        <label>
+                            <input type="checkbox" name="semigapp_events_settings[enable_payments]" value="1"
+                                   <?php checked($settings->get('events.enable_payments', true)); ?>>
+                            <?php esc_html_e('Enable Paid Events', 'semigapp'); ?>
+                        </label>
+                    </div>
+
+                    <div class="semigapp-form-row">
+                        <label for="default_reminder_hours"><?php esc_html_e('Reminder Hours Before Event', 'semigapp'); ?></label>
+                        <input type="number" name="semigapp_events_settings[default_reminder_hours]" id="default_reminder_hours"
+                               value="<?php echo esc_attr($settings->get('events.default_reminder_hours', 24)); ?>" min="1" max="168">
+                        <p class="description"><?php esc_html_e('Send reminders this many hours before the event starts.', 'semigapp'); ?></p>
+                    </div>
+
+                    <div class="semigapp-form-row">
+                        <label for="google_maps_api_key"><?php esc_html_e('Google Maps API Key', 'semigapp'); ?></label>
+                        <input type="text" name="semigapp_events_settings[google_maps_api_key]" id="google_maps_api_key"
+                               value="<?php echo esc_attr($settings->get('events.google_maps_api_key')); ?>" class="regular-text">
+                        <p class="description"><?php esc_html_e('Optional. Used for displaying event location maps.', 'semigapp'); ?></p>
+                    </div>
+                </div>
+
+                <div class="semigapp-settings-section">
+                    <h3><?php esc_html_e('Application Settings', 'semigapp'); ?></h3>
+                    <p class="description"><?php esc_html_e('Configure how event applications are handled. Applications allow you to review and approve attendees before confirming their registration.', 'semigapp'); ?></p>
+
+                    <div class="semigapp-form-row">
+                        <label>
+                            <input type="checkbox" name="semigapp_events_settings[enable_applications]" value="1"
+                                   <?php checked($settings->get('events.enable_applications', true)); ?>>
+                            <?php esc_html_e('Enable Event Applications', 'semigapp'); ?>
+                        </label>
+                        <p class="description"><?php esc_html_e('Allow events to require applications instead of direct registration.', 'semigapp'); ?></p>
+                    </div>
+
+                    <div class="semigapp-form-row">
+                        <label>
+                            <input type="checkbox" name="semigapp_events_settings[auto_approve_applications]" value="1"
+                                   <?php checked($settings->get('events.auto_approve_applications', false)); ?>>
+                            <?php esc_html_e('Auto-Approve Applications', 'semigapp'); ?>
+                        </label>
+                        <p class="description"><?php esc_html_e('Automatically approve all applications (disables manual review).', 'semigapp'); ?></p>
+                    </div>
+
+                    <div class="semigapp-form-row">
+                        <label>
+                            <input type="checkbox" name="semigapp_events_settings[waitlist_enabled]" value="1"
+                                   <?php checked($settings->get('events.waitlist_enabled', true)); ?>>
+                            <?php esc_html_e('Enable Waitlist', 'semigapp'); ?>
+                        </label>
+                        <p class="description"><?php esc_html_e('Allow applicants to be added to a waitlist when events are full.', 'semigapp'); ?></p>
+                    </div>
+
+                    <div class="semigapp-form-row">
+                        <label for="application_notification_email"><?php esc_html_e('Application Notification Email', 'semigapp'); ?></label>
+                        <input type="email" name="semigapp_events_settings[application_notification_email]" id="application_notification_email"
+                               value="<?php echo esc_attr($settings->get('events.application_notification_email', get_option('admin_email'))); ?>" class="regular-text">
+                        <p class="description"><?php esc_html_e('Email address to receive notifications for new applications.', 'semigapp'); ?></p>
+                    </div>
+                </div>
+
+                <div class="semigapp-settings-section">
+                    <h3><?php esc_html_e('Application Messages', 'semigapp'); ?></h3>
+
+                    <div class="semigapp-form-row">
+                        <label for="application_confirmation_text"><?php esc_html_e('Confirmation Message', 'semigapp'); ?></label>
+                        <textarea name="semigapp_events_settings[application_confirmation_text]" id="application_confirmation_text" rows="3" class="large-text"><?php echo esc_textarea($settings->get('events.application_confirmation_text', __('Thank you for your application. We will review it and get back to you soon.', 'semigapp'))); ?></textarea>
+                        <p class="description"><?php esc_html_e('Message shown after an application is submitted.', 'semigapp'); ?></p>
+                    </div>
+
+                    <div class="semigapp-form-row">
+                        <label for="application_approved_text"><?php esc_html_e('Approval Message', 'semigapp'); ?></label>
+                        <textarea name="semigapp_events_settings[application_approved_text]" id="application_approved_text" rows="3" class="large-text"><?php echo esc_textarea($settings->get('events.application_approved_text', __('Your application has been approved! We look forward to seeing you at the event.', 'semigapp'))); ?></textarea>
+                        <p class="description"><?php esc_html_e('Message included in the approval notification email.', 'semigapp'); ?></p>
+                    </div>
+
+                    <div class="semigapp-form-row">
+                        <label for="application_rejected_text"><?php esc_html_e('Rejection Message', 'semigapp'); ?></label>
+                        <textarea name="semigapp_events_settings[application_rejected_text]" id="application_rejected_text" rows="3" class="large-text"><?php echo esc_textarea($settings->get('events.application_rejected_text', __('Unfortunately, your application was not approved for this event.', 'semigapp'))); ?></textarea>
+                        <p class="description"><?php esc_html_e('Message included in the rejection notification email.', 'semigapp'); ?></p>
+                    </div>
+                </div>
+
             <?php else : ?>
                 <p><?php esc_html_e('Settings for this section.', 'semigapp'); ?></p>
             <?php endif; ?>

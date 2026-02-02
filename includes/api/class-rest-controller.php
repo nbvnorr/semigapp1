@@ -234,6 +234,62 @@ class Rest_Controller {
             'callback' => array($this, 'get_user_tasks'),
             'permission_callback' => array($this, 'check_user_logged_in'),
         ));
+
+        register_rest_route($this->namespace, '/account/applications', array(
+            'methods' => \WP_REST_Server::READABLE,
+            'callback' => array($this, 'get_user_applications'),
+            'permission_callback' => array($this, 'check_user_logged_in'),
+        ));
+
+        // Event Applications
+        register_rest_route($this->namespace, '/events/(?P<id>\d+)/apply', array(
+            'methods' => \WP_REST_Server::CREATABLE,
+            'callback' => array($this, 'apply_for_event'),
+            'permission_callback' => '__return_true',
+        ));
+
+        register_rest_route($this->namespace, '/events/(?P<id>\d+)/applications', array(
+            'methods' => \WP_REST_Server::READABLE,
+            'callback' => array($this, 'get_event_applications'),
+            'permission_callback' => array($this, 'check_events_permission'),
+        ));
+
+        register_rest_route($this->namespace, '/applications', array(
+            'methods' => \WP_REST_Server::READABLE,
+            'callback' => array($this, 'get_all_applications'),
+            'permission_callback' => array($this, 'check_events_permission'),
+        ));
+
+        register_rest_route($this->namespace, '/applications/(?P<id>\d+)', array(
+            array(
+                'methods' => \WP_REST_Server::READABLE,
+                'callback' => array($this, 'get_application'),
+                'permission_callback' => array($this, 'check_application_permission'),
+            ),
+            array(
+                'methods' => \WP_REST_Server::DELETABLE,
+                'callback' => array($this, 'cancel_application'),
+                'permission_callback' => array($this, 'check_application_permission'),
+            ),
+        ));
+
+        register_rest_route($this->namespace, '/applications/(?P<id>\d+)/approve', array(
+            'methods' => \WP_REST_Server::CREATABLE,
+            'callback' => array($this, 'approve_application'),
+            'permission_callback' => array($this, 'check_events_permission'),
+        ));
+
+        register_rest_route($this->namespace, '/applications/(?P<id>\d+)/reject', array(
+            'methods' => \WP_REST_Server::CREATABLE,
+            'callback' => array($this, 'reject_application'),
+            'permission_callback' => array($this, 'check_events_permission'),
+        ));
+
+        register_rest_route($this->namespace, '/applications/(?P<id>\d+)/waitlist', array(
+            'methods' => \WP_REST_Server::CREATABLE,
+            'callback' => array($this, 'waitlist_application'),
+            'permission_callback' => array($this, 'check_events_permission'),
+        ));
     }
 
     /**
@@ -284,6 +340,42 @@ class Rest_Controller {
         }
 
         return $order->user_id == get_current_user_id() || current_user_can('manage_options');
+    }
+
+    /**
+     * Check events management permission
+     *
+     * @return bool
+     */
+    public function check_events_permission() {
+        return current_user_can('manage_semigapp_events');
+    }
+
+    /**
+     * Check application permission (owner or admin)
+     *
+     * @param \WP_REST_Request $request Request.
+     * @return bool
+     */
+    public function check_application_permission($request) {
+        if (!is_user_logged_in()) {
+            return false;
+        }
+
+        if (current_user_can('manage_semigapp_events')) {
+            return true;
+        }
+
+        $application_id = $request->get_param('id');
+        $plugin = \SemigApp\Plugin::get_instance();
+        $events = $plugin->get_module('events');
+        $application = $events->get_application($application_id);
+
+        if (!$application) {
+            return false;
+        }
+
+        return $application->user_id == get_current_user_id();
     }
 
     // =========================================================================
@@ -724,5 +816,218 @@ class Rest_Controller {
         $projects = $plugin->get_module('projects');
 
         return rest_ensure_response($projects->get_user_tasks(get_current_user_id()));
+    }
+
+    public function get_user_applications($request) {
+        $plugin = \SemigApp\Plugin::get_instance();
+        $events = $plugin->get_module('events');
+
+        return rest_ensure_response($events->get_user_applications(get_current_user_id()));
+    }
+
+    // =========================================================================
+    // APPLICATION ENDPOINTS
+    // =========================================================================
+
+    /**
+     * Submit application for event
+     *
+     * @param \WP_REST_Request $request Request.
+     * @return \WP_REST_Response|\WP_Error Response.
+     */
+    public function apply_for_event($request) {
+        $plugin = \SemigApp\Plugin::get_instance();
+        $events = $plugin->get_module('events');
+
+        $event_id = $request->get_param('id');
+        $event = $events->get_event($event_id);
+
+        if (!$event) {
+            return new \WP_Error('not_found', __('Event not found.', 'semigapp'), array('status' => 404));
+        }
+
+        if (!$events->can_apply($event)) {
+            return new \WP_Error('applications_closed', __('Applications are not being accepted for this event.', 'semigapp'), array('status' => 400));
+        }
+
+        $application_id = $events->submit_application($event_id, $request->get_params());
+
+        if (!$application_id) {
+            return new \WP_Error('application_failed', __('Could not submit application. You may have already applied.', 'semigapp'), array('status' => 400));
+        }
+
+        return rest_ensure_response(array(
+            'application_id' => $application_id,
+            'message' => __('Application submitted successfully!', 'semigapp'),
+        ));
+    }
+
+    /**
+     * Get applications for an event
+     *
+     * @param \WP_REST_Request $request Request.
+     * @return \WP_REST_Response Response.
+     */
+    public function get_event_applications($request) {
+        $plugin = \SemigApp\Plugin::get_instance();
+        $events = $plugin->get_module('events');
+
+        $event_id = $request->get_param('id');
+        $args = array();
+
+        if ($request->get_param('status')) {
+            $args['where']['status'] = $request->get_param('status');
+        }
+
+        $applications = $events->get_applications($event_id, $args);
+        $counts = $events->get_application_counts($event_id);
+
+        return rest_ensure_response(array(
+            'applications' => $applications,
+            'counts' => $counts,
+        ));
+    }
+
+    /**
+     * Get all applications (admin)
+     *
+     * @param \WP_REST_Request $request Request.
+     * @return \WP_REST_Response Response.
+     */
+    public function get_all_applications($request) {
+        $plugin = \SemigApp\Plugin::get_instance();
+        $events = $plugin->get_module('events');
+
+        $args = array(
+            'limit' => $request->get_param('per_page') ?: 20,
+            'offset' => $request->get_param('offset') ?: 0,
+        );
+
+        if ($request->get_param('status')) {
+            $args['where']['status'] = $request->get_param('status');
+        }
+
+        if ($request->get_param('event_id')) {
+            $args['where']['event_id'] = $request->get_param('event_id');
+        }
+
+        return rest_ensure_response($events->get_all_applications($args));
+    }
+
+    /**
+     * Get single application
+     *
+     * @param \WP_REST_Request $request Request.
+     * @return \WP_REST_Response|\WP_Error Response.
+     */
+    public function get_application($request) {
+        $plugin = \SemigApp\Plugin::get_instance();
+        $events = $plugin->get_module('events');
+
+        $application = $events->get_application($request->get_param('id'));
+
+        if (!$application) {
+            return new \WP_Error('not_found', __('Application not found.', 'semigapp'), array('status' => 404));
+        }
+
+        return rest_ensure_response($application);
+    }
+
+    /**
+     * Cancel application
+     *
+     * @param \WP_REST_Request $request Request.
+     * @return \WP_REST_Response|\WP_Error Response.
+     */
+    public function cancel_application($request) {
+        $plugin = \SemigApp\Plugin::get_instance();
+        $events = $plugin->get_module('events');
+
+        $result = $events->cancel_application($request->get_param('id'));
+
+        if (!$result) {
+            return new \WP_Error('cancel_failed', __('Could not cancel application.', 'semigapp'), array('status' => 400));
+        }
+
+        return rest_ensure_response(array(
+            'cancelled' => true,
+            'message' => __('Application cancelled.', 'semigapp'),
+        ));
+    }
+
+    /**
+     * Approve application
+     *
+     * @param \WP_REST_Request $request Request.
+     * @return \WP_REST_Response|\WP_Error Response.
+     */
+    public function approve_application($request) {
+        $plugin = \SemigApp\Plugin::get_instance();
+        $events = $plugin->get_module('events');
+
+        $notes = $request->get_param('notes') ?: '';
+        $result = $events->approve_application($request->get_param('id'), $notes);
+
+        if ($result === false) {
+            return new \WP_Error('approve_failed', __('Could not approve application.', 'semigapp'), array('status' => 400));
+        }
+
+        $application = $events->get_application($request->get_param('id'));
+
+        return rest_ensure_response(array(
+            'approved' => true,
+            'registration_id' => $result,
+            'application' => $application,
+            'message' => __('Application approved successfully.', 'semigapp'),
+        ));
+    }
+
+    /**
+     * Reject application
+     *
+     * @param \WP_REST_Request $request Request.
+     * @return \WP_REST_Response|\WP_Error Response.
+     */
+    public function reject_application($request) {
+        $plugin = \SemigApp\Plugin::get_instance();
+        $events = $plugin->get_module('events');
+
+        $reason = $request->get_param('reason') ?: '';
+        $notes = $request->get_param('notes') ?: '';
+        $result = $events->reject_application($request->get_param('id'), $reason, $notes);
+
+        if (!$result) {
+            return new \WP_Error('reject_failed', __('Could not reject application.', 'semigapp'), array('status' => 400));
+        }
+
+        return rest_ensure_response(array(
+            'rejected' => true,
+            'message' => __('Application rejected.', 'semigapp'),
+        ));
+    }
+
+    /**
+     * Add application to waitlist
+     *
+     * @param \WP_REST_Request $request Request.
+     * @return \WP_REST_Response|\WP_Error Response.
+     */
+    public function waitlist_application($request) {
+        $plugin = \SemigApp\Plugin::get_instance();
+        $events = $plugin->get_module('events');
+
+        $result = $events->add_to_waitlist($request->get_param('id'));
+
+        if (!$result) {
+            return new \WP_Error('waitlist_failed', __('Could not add to waitlist.', 'semigapp'), array('status' => 400));
+        }
+
+        $application = $events->get_application($request->get_param('id'));
+
+        return rest_ensure_response(array(
+            'waitlisted' => true,
+            'position' => $application->waitlist_position,
+            'message' => __('Application added to waitlist.', 'semigapp'),
+        ));
     }
 }

@@ -29,6 +29,8 @@ $tables = array(
     'semigapp_task_comments',
     'semigapp_events',
     'semigapp_event_registrations',
+    'semigapp_event_applications',
+    'semigapp_event_application_fields',
     'semigapp_members',
     'semigapp_membership_levels',
     'semigapp_membership_payments',

@@ -164,6 +164,55 @@ class Activator {
             KEY status (status)
         ) $charset_collate;";
 
+        // Event applications table (for events requiring approval)
+        $event_applications_table = $wpdb->prefix . 'semigapp_event_applications';
+        $sql_event_applications = "CREATE TABLE $event_applications_table (
+            id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            event_id bigint(20) unsigned NOT NULL,
+            user_id bigint(20) unsigned DEFAULT NULL,
+            applicant_name varchar(255) NOT NULL,
+            applicant_email varchar(255) NOT NULL,
+            applicant_phone varchar(50),
+            attendees int(11) DEFAULT 1,
+            status varchar(50) DEFAULT 'pending',
+            motivation longtext,
+            custom_fields longtext,
+            admin_notes longtext,
+            reviewed_by bigint(20) unsigned DEFAULT NULL,
+            reviewed_at datetime DEFAULT NULL,
+            rejection_reason longtext,
+            waitlist_position int(11) DEFAULT NULL,
+            payment_status varchar(50) DEFAULT 'pending',
+            payment_id varchar(255),
+            registration_id bigint(20) unsigned DEFAULT NULL,
+            created_at datetime DEFAULT CURRENT_TIMESTAMP,
+            updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            KEY event_id (event_id),
+            KEY user_id (user_id),
+            KEY status (status),
+            KEY waitlist_position (waitlist_position)
+        ) $charset_collate;";
+
+        // Event application fields (custom fields for application forms)
+        $event_application_fields_table = $wpdb->prefix . 'semigapp_event_application_fields';
+        $sql_event_application_fields = "CREATE TABLE $event_application_fields_table (
+            id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            event_id bigint(20) unsigned NOT NULL,
+            field_name varchar(255) NOT NULL,
+            field_label varchar(255) NOT NULL,
+            field_type varchar(50) DEFAULT 'text',
+            field_options longtext,
+            is_required tinyint(1) DEFAULT 0,
+            placeholder varchar(255),
+            help_text varchar(500),
+            sort_order int(11) DEFAULT 0,
+            created_at datetime DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            KEY event_id (event_id),
+            KEY sort_order (sort_order)
+        ) $charset_collate;";
+
         // Members table
         $members_table = $wpdb->prefix . 'semigapp_members';
         $sql_members = "CREATE TABLE $members_table (
@@ -435,6 +484,8 @@ class Activator {
         dbDelta($sql_task_comments);
         dbDelta($sql_events);
         dbDelta($sql_event_registrations);
+        dbDelta($sql_event_applications);
+        dbDelta($sql_event_application_fields);
         dbDelta($sql_members);
         dbDelta($sql_membership_levels);
         dbDelta($sql_membership_payments);
@@ -477,8 +528,15 @@ class Activator {
             'events' => array(
                 'enable_registration' => true,
                 'enable_payments' => true,
+                'enable_applications' => true,
                 'default_reminder_hours' => 24,
                 'google_maps_api_key' => '',
+                'application_notification_email' => get_option('admin_email'),
+                'auto_approve_applications' => false,
+                'waitlist_enabled' => true,
+                'application_confirmation_text' => __('Thank you for your application. We will review it and get back to you soon.', 'semigapp'),
+                'application_approved_text' => __('Your application has been approved! We look forward to seeing you at the event.', 'semigapp'),
+                'application_rejected_text' => __('Unfortunately, your application was not approved for this event.', 'semigapp'),
             ),
             // Membership settings
             'membership' => array(

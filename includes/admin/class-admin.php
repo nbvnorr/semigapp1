@@ -40,6 +40,7 @@ class Admin {
         add_action('admin_menu', array($this, 'register_menu'));
         add_action('admin_init', array($this, 'register_settings'));
         add_action('wp_ajax_semigapp_admin_action', array($this, 'handle_ajax'));
+        add_action('wp_ajax_semigapp_get_application_details', array($this, 'ajax_get_application_details'));
     }
 
     /**
@@ -335,6 +336,38 @@ class Admin {
                 include SEMIGAPP_PLUGIN_DIR . 'templates/admin/events/view.php';
                 break;
 
+            case 'applications':
+                $event = $event_id ? $events_module->get_event($event_id) : null;
+                $current_status = isset($_GET['status']) ? sanitize_text_field($_GET['status']) : '';
+                $search = isset($_GET['search']) ? sanitize_text_field($_GET['search']) : '';
+
+                $args = array();
+                if ($event_id) {
+                    $args['where']['event_id'] = $event_id;
+                }
+                if ($current_status) {
+                    $args['where']['status'] = $current_status;
+                }
+                if ($search) {
+                    $args['search'] = $search;
+                    $args['search_columns'] = array('applicant_name', 'applicant_email');
+                }
+
+                if ($event_id) {
+                    $applications = $events_module->get_applications($event_id, $args);
+                } else {
+                    $applications = $events_module->get_all_applications($args);
+                }
+
+                include SEMIGAPP_PLUGIN_DIR . 'templates/admin/events/applications.php';
+                break;
+
+            case 'application-fields':
+                $event = $events_module->get_event($event_id);
+                $fields = $events_module->get_application_fields($event_id);
+                include SEMIGAPP_PLUGIN_DIR . 'templates/admin/events/application-fields.php';
+                break;
+
             default:
                 $events = $events_module->get_events();
                 include SEMIGAPP_PLUGIN_DIR . 'templates/admin/events/list.php';
@@ -492,6 +525,23 @@ class Admin {
         }
 
         $action = isset($_POST['admin_action']) ? sanitize_text_field($_POST['admin_action']) : '';
+
+        // Handle application field actions
+        if ($action === 'save_application_field') {
+            $this->handle_save_application_field();
+            return;
+        }
+
+        if ($action === 'delete_application_field') {
+            $this->handle_delete_application_field();
+            return;
+        }
+
+        if ($action === 'reorder_application_fields') {
+            $this->handle_reorder_application_fields();
+            return;
+        }
+
         $module = isset($_POST['module']) ? sanitize_text_field($_POST['module']) : '';
 
         $plugin = \SemigApp\Plugin::get_instance();
@@ -542,5 +592,237 @@ class Admin {
             default:
                 wp_send_json_error(array('message' => __('Invalid action.', 'semigapp')));
         }
+    }
+
+    /**
+     * AJAX handler for getting application details
+     */
+    public function ajax_get_application_details() {
+        check_ajax_referer('semigapp_admin', 'nonce');
+
+        if (!current_user_can('manage_semigapp_events')) {
+            wp_send_json_error(array('message' => __('Permission denied.', 'semigapp')));
+        }
+
+        $application_id = isset($_POST['application_id']) ? intval($_POST['application_id']) : 0;
+
+        if (!$application_id) {
+            wp_send_json_error(array('message' => __('Invalid application ID.', 'semigapp')));
+        }
+
+        $plugin = \SemigApp\Plugin::get_instance();
+        $events_module = $plugin->get_module('events');
+        $application = $events_module->get_application($application_id);
+
+        if (!$application) {
+            wp_send_json_error(array('message' => __('Application not found.', 'semigapp')));
+        }
+
+        $statuses = $events_module->get_application_statuses();
+        $custom_fields = $events_module->get_application_fields($application->event_id);
+
+        ob_start();
+        ?>
+        <div class="semigapp-application-details">
+            <div class="semigapp-detail-row">
+                <label><?php esc_html_e('Status', 'semigapp'); ?></label>
+                <span class="semigapp-status semigapp-status-<?php echo esc_attr($application->status); ?>">
+                    <?php echo esc_html($statuses[$application->status] ?? $application->status); ?>
+                </span>
+            </div>
+
+            <div class="semigapp-detail-row">
+                <label><?php esc_html_e('Applicant Name', 'semigapp'); ?></label>
+                <span><?php echo esc_html($application->applicant_name); ?></span>
+            </div>
+
+            <div class="semigapp-detail-row">
+                <label><?php esc_html_e('Email', 'semigapp'); ?></label>
+                <span><a href="mailto:<?php echo esc_attr($application->applicant_email); ?>"><?php echo esc_html($application->applicant_email); ?></a></span>
+            </div>
+
+            <?php if (!empty($application->applicant_phone)) : ?>
+                <div class="semigapp-detail-row">
+                    <label><?php esc_html_e('Phone', 'semigapp'); ?></label>
+                    <span><?php echo esc_html($application->applicant_phone); ?></span>
+                </div>
+            <?php endif; ?>
+
+            <div class="semigapp-detail-row">
+                <label><?php esc_html_e('Number of Attendees', 'semigapp'); ?></label>
+                <span><?php echo esc_html($application->attendees); ?></span>
+            </div>
+
+            <?php if (!empty($application->motivation)) : ?>
+                <div class="semigapp-detail-row">
+                    <label><?php esc_html_e('Motivation', 'semigapp'); ?></label>
+                    <div class="semigapp-detail-content"><?php echo nl2br(esc_html($application->motivation)); ?></div>
+                </div>
+            <?php endif; ?>
+
+            <?php if (!empty($application->custom_fields) && !empty($custom_fields)) : ?>
+                <h4><?php esc_html_e('Additional Information', 'semigapp'); ?></h4>
+                <?php foreach ($custom_fields as $field) : ?>
+                    <?php $value = $application->custom_fields[$field->field_name] ?? ''; ?>
+                    <?php if (!empty($value)) : ?>
+                        <div class="semigapp-detail-row">
+                            <label><?php echo esc_html($field->field_label); ?></label>
+                            <span><?php echo esc_html($value); ?></span>
+                        </div>
+                    <?php endif; ?>
+                <?php endforeach; ?>
+            <?php endif; ?>
+
+            <div class="semigapp-detail-row">
+                <label><?php esc_html_e('Applied On', 'semigapp'); ?></label>
+                <span><?php echo esc_html(date_i18n(get_option('date_format') . ' ' . get_option('time_format'), strtotime($application->created_at))); ?></span>
+            </div>
+
+            <?php if ($application->reviewed_at) : ?>
+                <div class="semigapp-detail-row">
+                    <label><?php esc_html_e('Reviewed On', 'semigapp'); ?></label>
+                    <span>
+                        <?php echo esc_html(date_i18n(get_option('date_format') . ' ' . get_option('time_format'), strtotime($application->reviewed_at))); ?>
+                        <?php if ($application->reviewer) : ?>
+                            <?php printf(esc_html__('by %s', 'semigapp'), esc_html($application->reviewer->display_name)); ?>
+                        <?php endif; ?>
+                    </span>
+                </div>
+            <?php endif; ?>
+
+            <?php if ($application->status === 'waitlisted' && $application->waitlist_position) : ?>
+                <div class="semigapp-detail-row">
+                    <label><?php esc_html_e('Waitlist Position', 'semigapp'); ?></label>
+                    <span>#<?php echo esc_html($application->waitlist_position); ?></span>
+                </div>
+            <?php endif; ?>
+
+            <?php if (!empty($application->rejection_reason)) : ?>
+                <div class="semigapp-detail-row">
+                    <label><?php esc_html_e('Rejection Reason', 'semigapp'); ?></label>
+                    <div class="semigapp-detail-content"><?php echo nl2br(esc_html($application->rejection_reason)); ?></div>
+                </div>
+            <?php endif; ?>
+
+            <?php if (!empty($application->admin_notes)) : ?>
+                <div class="semigapp-detail-row">
+                    <label><?php esc_html_e('Admin Notes', 'semigapp'); ?></label>
+                    <div class="semigapp-detail-content"><?php echo nl2br(esc_html($application->admin_notes)); ?></div>
+                </div>
+            <?php endif; ?>
+        </div>
+
+        <style>
+        .semigapp-application-details .semigapp-detail-row {
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .semigapp-application-details .semigapp-detail-row:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        .semigapp-application-details label {
+            display: block;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 0.25rem;
+        }
+        .semigapp-application-details .semigapp-detail-content {
+            background: #f9fafb;
+            padding: 0.75rem;
+            border-radius: 4px;
+            margin-top: 0.25rem;
+        }
+        .semigapp-application-details h4 {
+            margin: 1.5rem 0 1rem;
+            padding-top: 1rem;
+            border-top: 2px solid #e5e7eb;
+        }
+        </style>
+        <?php
+        $html = ob_get_clean();
+
+        wp_send_json_success(array('html' => $html));
+    }
+
+    /**
+     * Handle saving application field
+     */
+    private function handle_save_application_field() {
+        if (!current_user_can('manage_semigapp_events')) {
+            wp_send_json_error(array('message' => __('Permission denied.', 'semigapp')));
+        }
+
+        $event_id = isset($_POST['event_id']) ? intval($_POST['event_id']) : 0;
+        $field = isset($_POST['field']) ? $_POST['field'] : array();
+
+        if (!$event_id || empty($field['field_label'])) {
+            wp_send_json_error(array('message' => __('Invalid data.', 'semigapp')));
+        }
+
+        $plugin = \SemigApp\Plugin::get_instance();
+        $events_module = $plugin->get_module('events');
+
+        $result = $events_module->save_application_field($event_id, $field);
+
+        if ($result !== false) {
+            wp_send_json_success(array('field_id' => $result));
+        } else {
+            wp_send_json_error(array('message' => __('Failed to save field.', 'semigapp')));
+        }
+    }
+
+    /**
+     * Handle deleting application field
+     */
+    private function handle_delete_application_field() {
+        if (!current_user_can('manage_semigapp_events')) {
+            wp_send_json_error(array('message' => __('Permission denied.', 'semigapp')));
+        }
+
+        $field_id = isset($_POST['field_id']) ? intval($_POST['field_id']) : 0;
+
+        if (!$field_id) {
+            wp_send_json_error(array('message' => __('Invalid field ID.', 'semigapp')));
+        }
+
+        $plugin = \SemigApp\Plugin::get_instance();
+        $events_module = $plugin->get_module('events');
+
+        $result = $events_module->delete_application_field($field_id);
+
+        if ($result) {
+            wp_send_json_success();
+        } else {
+            wp_send_json_error(array('message' => __('Failed to delete field.', 'semigapp')));
+        }
+    }
+
+    /**
+     * Handle reordering application fields
+     */
+    private function handle_reorder_application_fields() {
+        if (!current_user_can('manage_semigapp_events')) {
+            wp_send_json_error(array('message' => __('Permission denied.', 'semigapp')));
+        }
+
+        $order = isset($_POST['order']) ? $_POST['order'] : array();
+
+        if (empty($order)) {
+            wp_send_json_success();
+            return;
+        }
+
+        $db = \SemigApp\Database::get_instance();
+
+        foreach ($order as $item) {
+            $db->update('event_application_fields', array(
+                'sort_order' => intval($item['order']),
+            ), array('id' => intval($item['id'])));
+        }
+
+        wp_send_json_success();
     }
 }

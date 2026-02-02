@@ -15,6 +15,13 @@ A comprehensive WordPress plugin for business management featuring Project Manag
 ### Event Calendar & Management
 - Full event calendar with monthly view
 - Event registration system
+- **Event Application Management:**
+  - Application workflow (submit → review → approve/reject)
+  - Waitlist support with automatic promotion
+  - Custom application fields per event
+  - Application status tracking (pending, approved, rejected, waitlisted)
+  - Email notifications for application status changes
+  - Admin dashboard for reviewing applications
 - Paid event support
 - Attendee management and check-in
 - Recurring events
@@ -101,6 +108,8 @@ A comprehensive WordPress plugin for business management featuring Project Manag
 - `[semigapp_events]` - Event list
 - `[semigapp_calendar]` - Event calendar
 - `[semigapp_event id="123"]` - Single event
+- `[semigapp_event_application id="123"]` - Event application form
+- `[semigapp_my_applications]` - User's application list
 
 ### Membership
 - `[semigapp_membership_levels]` - Display membership options
@@ -123,6 +132,14 @@ The plugin provides a full REST API under the `/wp-json/semigapp/v1/` namespace.
 - `GET /projects` - List projects
 - `GET /tasks` - List tasks
 - `GET /events` - List events
+- `POST /events/{id}/apply` - Submit event application
+- `GET /events/{id}/applications` - Get event applications (admin)
+- `GET /applications` - List all applications (admin)
+- `GET /applications/{id}` - Get application details
+- `POST /applications/{id}/approve` - Approve application
+- `POST /applications/{id}/reject` - Reject application
+- `POST /applications/{id}/waitlist` - Add to waitlist
+- `DELETE /applications/{id}` - Cancel application
 - `GET /products` - List products
 - `GET/POST /cart` - Cart operations
 - `POST /checkout` - Process checkout
@@ -135,6 +152,10 @@ The plugin provides a full REST API under the `/wp-json/semigapp/v1/` namespace.
 - `semigapp_task_assigned` - Fired when task is assigned
 - `semigapp_order_created` - Fired when order is placed
 - `semigapp_member_created` - Fired when member is created
+- `semigapp_application_submitted` - Fired when event application is submitted
+- `semigapp_application_approved` - Fired when application is approved
+- `semigapp_application_rejected` - Fired when application is rejected
+- `semigapp_application_waitlisted` - Fired when application is waitlisted
 
 ### Filters
 - `semigapp_task_statuses` - Modify task statuses
