@@ -1,0 +1,633 @@
+/**
+ * SemigApp Admin Styles
+ *
+ * @package SemigApp
+ */
+
+/* ==========================================================================
+   Variables
+   ========================================================================== */
+
+:root {
+    --semigapp-admin-primary: #2563eb;
+    --semigapp-admin-primary-dark: #1d4ed8;
+    --semigapp-admin-success: #10b981;
+    --semigapp-admin-warning: #f59e0b;
+    --semigapp-admin-danger: #ef4444;
+    --semigapp-admin-border: #e2e8f0;
+    --semigapp-admin-bg: #f8fafc;
+}
+
+/* ==========================================================================
+   General Admin Styles
+   ========================================================================== */
+
+.semigapp-admin-wrap {
+    margin: 20px 20px 20px 0;
+}
+
+.semigapp-admin-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.semigapp-admin-header h1 {
+    margin: 0;
+    font-size: 23px;
+    font-weight: 400;
+}
+
+.semigapp-admin-actions {
+    display: flex;
+    gap: 10px;
+}
+
+/* ==========================================================================
+   Dashboard Stats
+   ========================================================================== */
+
+.semigapp-dashboard-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.semigapp-stat-card {
+    background: #fff;
+    border: 1px solid var(--semigapp-admin-border);
+    border-radius: 8px;
+    padding: 20px;
+}
+
+.semigapp-stat-card h3 {
+    margin: 0 0 10px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #64748b;
+}
+
+.semigapp-stat-value {
+    font-size: 32px;
+    font-weight: 600;
+    color: #1e293b;
+}
+
+.semigapp-stat-subtitle {
+    font-size: 13px;
+    color: #64748b;
+    margin-top: 5px;
+}
+
+.semigapp-stat-card.success .semigapp-stat-value { color: var(--semigapp-admin-success); }
+.semigapp-stat-card.warning .semigapp-stat-value { color: var(--semigapp-admin-warning); }
+.semigapp-stat-card.danger .semigapp-stat-value { color: var(--semigapp-admin-danger); }
+.semigapp-stat-card.primary .semigapp-stat-value { color: var(--semigapp-admin-primary); }
+
+/* ==========================================================================
+   Admin Cards
+   ========================================================================== */
+
+.semigapp-admin-card {
+    background: #fff;
+    border: 1px solid var(--semigapp-admin-border);
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.semigapp-admin-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 20px;
+    border-bottom: 1px solid var(--semigapp-admin-border);
+}
+
+.semigapp-admin-card-header h2 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.semigapp-admin-card-body {
+    padding: 20px;
+}
+
+.semigapp-admin-card-footer {
+    padding: 15px 20px;
+    border-top: 1px solid var(--semigapp-admin-border);
+    background: var(--semigapp-admin-bg);
+}
+
+/* ==========================================================================
+   Admin Tables
+   ========================================================================== */
+
+.semigapp-admin-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.semigapp-admin-table th,
+.semigapp-admin-table td {
+    padding: 12px 15px;
+    text-align: left;
+    border-bottom: 1px solid var(--semigapp-admin-border);
+}
+
+.semigapp-admin-table th {
+    font-weight: 600;
+    background: var(--semigapp-admin-bg);
+    color: #475569;
+    font-size: 13px;
+}
+
+.semigapp-admin-table tbody tr:hover {
+    background-color: #f8fafc;
+}
+
+.semigapp-admin-table .row-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.semigapp-admin-table .row-actions a {
+    color: var(--semigapp-admin-primary);
+    text-decoration: none;
+}
+
+.semigapp-admin-table .row-actions a:hover {
+    text-decoration: underline;
+}
+
+.semigapp-admin-table .row-actions .delete {
+    color: var(--semigapp-admin-danger);
+}
+
+/* ==========================================================================
+   Status Badges
+   ========================================================================== */
+
+.semigapp-status {
+    display: inline-flex;
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 500;
+    border-radius: 20px;
+}
+
+.semigapp-status-active,
+.semigapp-status-published,
+.semigapp-status-completed {
+    background-color: #d1fae5;
+    color: #047857;
+}
+
+.semigapp-status-pending,
+.semigapp-status-draft {
+    background-color: #fef3c7;
+    color: #b45309;
+}
+
+.semigapp-status-cancelled,
+.semigapp-status-failed {
+    background-color: #fee2e2;
+    color: #b91c1c;
+}
+
+.semigapp-status-processing {
+    background-color: #dbeafe;
+    color: #1d4ed8;
+}
+
+.semigapp-status-expired {
+    background-color: #f1f5f9;
+    color: #475569;
+}
+
+/* ==========================================================================
+   Admin Forms
+   ========================================================================== */
+
+.semigapp-admin-form {
+    max-width: 800px;
+}
+
+.semigapp-form-row {
+    margin-bottom: 20px;
+}
+
+.semigapp-form-row label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #1e293b;
+}
+
+.semigapp-form-row .description {
+    margin-top: 6px;
+    font-size: 13px;
+    color: #64748b;
+}
+
+.semigapp-form-row input[type="text"],
+.semigapp-form-row input[type="email"],
+.semigapp-form-row input[type="number"],
+.semigapp-form-row input[type="url"],
+.semigapp-form-row input[type="password"],
+.semigapp-form-row textarea,
+.semigapp-form-row select {
+    width: 100%;
+    max-width: 500px;
+    padding: 8px 12px;
+    border: 1px solid var(--semigapp-admin-border);
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.semigapp-form-row input:focus,
+.semigapp-form-row textarea:focus,
+.semigapp-form-row select:focus {
+    outline: none;
+    border-color: var(--semigapp-admin-primary);
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+}
+
+.semigapp-form-row textarea {
+    min-height: 120px;
+    resize: vertical;
+}
+
+.semigapp-form-row-inline {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.semigapp-form-row-inline input {
+    width: auto;
+}
+
+/* ==========================================================================
+   Settings Tabs
+   ========================================================================== */
+
+.semigapp-settings-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--semigapp-admin-border);
+    margin-bottom: 20px;
+    background: #fff;
+    padding: 0 20px;
+}
+
+.semigapp-settings-tabs a {
+    padding: 15px 20px;
+    text-decoration: none;
+    color: #64748b;
+    font-weight: 500;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+}
+
+.semigapp-settings-tabs a:hover {
+    color: var(--semigapp-admin-primary);
+}
+
+.semigapp-settings-tabs a.active {
+    color: var(--semigapp-admin-primary);
+    border-bottom-color: var(--semigapp-admin-primary);
+}
+
+.semigapp-settings-content {
+    background: #fff;
+    border: 1px solid var(--semigapp-admin-border);
+    border-radius: 8px;
+    padding: 30px;
+}
+
+.semigapp-settings-section {
+    margin-bottom: 30px;
+    padding-bottom: 30px;
+    border-bottom: 1px solid var(--semigapp-admin-border);
+}
+
+.semigapp-settings-section:last-child {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+}
+
+.semigapp-settings-section h3 {
+    margin: 0 0 20px;
+    font-size: 16px;
+    color: #1e293b;
+}
+
+/* ==========================================================================
+   Admin Modals
+   ========================================================================== */
+
+.semigapp-modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 100000;
+    align-items: center;
+    justify-content: center;
+}
+
+.semigapp-modal-overlay.active {
+    display: flex;
+}
+
+.semigapp-modal {
+    background: #fff;
+    border-radius: 8px;
+    max-width: 600px;
+    width: 90%;
+    max-height: 90vh;
+    overflow: auto;
+}
+
+.semigapp-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    border-bottom: 1px solid var(--semigapp-admin-border);
+}
+
+.semigapp-modal-header h2 {
+    margin: 0;
+    font-size: 18px;
+}
+
+.semigapp-modal-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #64748b;
+    padding: 0;
+    line-height: 1;
+}
+
+.semigapp-modal-body {
+    padding: 20px;
+}
+
+.semigapp-modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 20px;
+    border-top: 1px solid var(--semigapp-admin-border);
+    background: var(--semigapp-admin-bg);
+}
+
+/* ==========================================================================
+   Quick Stats Grid
+   ========================================================================== */
+
+.semigapp-quick-stats {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+}
+
+.semigapp-quick-stat {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 15px;
+    background: var(--semigapp-admin-bg);
+    border-radius: 6px;
+}
+
+.semigapp-quick-stat-icon {
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    font-size: 24px;
+}
+
+.semigapp-quick-stat-icon.projects { background: #dbeafe; color: #2563eb; }
+.semigapp-quick-stat-icon.events { background: #fef3c7; color: #f59e0b; }
+.semigapp-quick-stat-icon.members { background: #d1fae5; color: #10b981; }
+.semigapp-quick-stat-icon.orders { background: #fce7f3; color: #ec4899; }
+
+.semigapp-quick-stat-info h4 {
+    margin: 0;
+    font-size: 24px;
+    font-weight: 600;
+}
+
+.semigapp-quick-stat-info span {
+    font-size: 13px;
+    color: #64748b;
+}
+
+/* ==========================================================================
+   Chart Container
+   ========================================================================== */
+
+.semigapp-chart-container {
+    position: relative;
+    height: 300px;
+}
+
+/* ==========================================================================
+   Activity Log
+   ========================================================================== */
+
+.semigapp-activity-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.semigapp-activity-item {
+    display: flex;
+    gap: 15px;
+    padding: 15px 0;
+    border-bottom: 1px solid var(--semigapp-admin-border);
+}
+
+.semigapp-activity-item:last-child {
+    border-bottom: none;
+}
+
+.semigapp-activity-icon {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--semigapp-admin-bg);
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.semigapp-activity-content {
+    flex: 1;
+}
+
+.semigapp-activity-content p {
+    margin: 0 0 4px;
+}
+
+.semigapp-activity-time {
+    font-size: 12px;
+    color: #64748b;
+}
+
+/* ==========================================================================
+   Empty State
+   ========================================================================== */
+
+.semigapp-empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: #64748b;
+}
+
+.semigapp-empty-state .dashicons {
+    font-size: 48px;
+    width: 48px;
+    height: 48px;
+    margin-bottom: 20px;
+    opacity: 0.5;
+}
+
+.semigapp-empty-state h3 {
+    margin: 0 0 10px;
+    color: #1e293b;
+}
+
+.semigapp-empty-state p {
+    margin: 0 0 20px;
+}
+
+/* ==========================================================================
+   Filters
+   ========================================================================== */
+
+.semigapp-filters {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.semigapp-filter {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.semigapp-filter label {
+    font-size: 13px;
+    color: #64748b;
+}
+
+.semigapp-filter select {
+    padding: 6px 10px;
+    border: 1px solid var(--semigapp-admin-border);
+    border-radius: 4px;
+    font-size: 13px;
+}
+
+.semigapp-search {
+    flex: 1;
+    max-width: 300px;
+}
+
+.semigapp-search input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--semigapp-admin-border);
+    border-radius: 4px;
+}
+
+/* ==========================================================================
+   Pagination
+   ========================================================================== */
+
+.semigapp-pagination {
+    display: flex;
+    justify-content: center;
+    gap: 5px;
+    margin-top: 20px;
+}
+
+.semigapp-pagination a,
+.semigapp-pagination span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 36px;
+    height: 36px;
+    padding: 0 10px;
+    border: 1px solid var(--semigapp-admin-border);
+    border-radius: 4px;
+    text-decoration: none;
+    color: #64748b;
+    font-size: 14px;
+}
+
+.semigapp-pagination a:hover {
+    background: var(--semigapp-admin-bg);
+    color: var(--semigapp-admin-primary);
+}
+
+.semigapp-pagination .current {
+    background: var(--semigapp-admin-primary);
+    border-color: var(--semigapp-admin-primary);
+    color: #fff;
+}
+
+/* ==========================================================================
+   Responsive
+   ========================================================================== */
+
+@media (max-width: 782px) {
+    .semigapp-admin-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+    }
+
+    .semigapp-dashboard-stats {
+        grid-template-columns: 1fr;
+    }
+
+    .semigapp-quick-stats {
+        grid-template-columns: 1fr;
+    }
+
+    .semigapp-settings-tabs {
+        flex-wrap: wrap;
+        padding: 10px;
+    }
+
+    .semigapp-settings-tabs a {
+        padding: 10px 15px;
+    }
+
+    .semigapp-filters {
+        flex-direction: column;
+    }
+
+    .semigapp-search {
+        max-width: 100%;
+    }
+}

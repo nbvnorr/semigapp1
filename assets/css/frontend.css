@@ -1,0 +1,950 @@
+/**
+ * SemigApp Frontend Styles
+ *
+ * @package SemigApp
+ */
+
+/* ==========================================================================
+   CSS Variables
+   ========================================================================== */
+
+:root {
+    --semigapp-primary: #2563eb;
+    --semigapp-primary-dark: #1d4ed8;
+    --semigapp-secondary: #64748b;
+    --semigapp-success: #10b981;
+    --semigapp-warning: #f59e0b;
+    --semigapp-danger: #ef4444;
+    --semigapp-info: #3b82f6;
+    --semigapp-light: #f8fafc;
+    --semigapp-dark: #1e293b;
+    --semigapp-border: #e2e8f0;
+    --semigapp-text: #334155;
+    --semigapp-text-light: #64748b;
+    --semigapp-radius: 8px;
+    --semigapp-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    --semigapp-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    --semigapp-transition: 0.2s ease;
+}
+
+/* ==========================================================================
+   Base Styles
+   ========================================================================== */
+
+.semigapp-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+.semigapp-grid {
+    display: grid;
+    gap: 20px;
+}
+
+.semigapp-grid-2 { grid-template-columns: repeat(2, 1fr); }
+.semigapp-grid-3 { grid-template-columns: repeat(3, 1fr); }
+.semigapp-grid-4 { grid-template-columns: repeat(4, 1fr); }
+
+@media (max-width: 768px) {
+    .semigapp-grid-2,
+    .semigapp-grid-3,
+    .semigapp-grid-4 {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ==========================================================================
+   Buttons
+   ========================================================================== */
+
+.semigapp-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 20px;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.5;
+    text-decoration: none;
+    border: none;
+    border-radius: var(--semigapp-radius);
+    cursor: pointer;
+    transition: all var(--semigapp-transition);
+}
+
+.semigapp-button-primary {
+    background-color: var(--semigapp-primary);
+    color: #fff;
+}
+
+.semigapp-button-primary:hover {
+    background-color: var(--semigapp-primary-dark);
+    color: #fff;
+}
+
+.semigapp-button-secondary {
+    background-color: var(--semigapp-secondary);
+    color: #fff;
+}
+
+.semigapp-button-outline {
+    background-color: transparent;
+    border: 1px solid var(--semigapp-border);
+    color: var(--semigapp-text);
+}
+
+.semigapp-button-outline:hover {
+    background-color: var(--semigapp-light);
+}
+
+.semigapp-button-sm {
+    padding: 6px 12px;
+    font-size: 13px;
+}
+
+.semigapp-button-lg {
+    padding: 14px 28px;
+    font-size: 16px;
+}
+
+.semigapp-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* ==========================================================================
+   Forms
+   ========================================================================== */
+
+.semigapp-form-group {
+    margin-bottom: 20px;
+}
+
+.semigapp-form-group label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 500;
+    color: var(--semigapp-text);
+}
+
+.semigapp-input,
+.semigapp-select,
+.semigapp-textarea {
+    width: 100%;
+    padding: 10px 14px;
+    font-size: 14px;
+    border: 1px solid var(--semigapp-border);
+    border-radius: var(--semigapp-radius);
+    background-color: #fff;
+    transition: border-color var(--semigapp-transition);
+}
+
+.semigapp-input:focus,
+.semigapp-select:focus,
+.semigapp-textarea:focus {
+    outline: none;
+    border-color: var(--semigapp-primary);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.semigapp-textarea {
+    min-height: 120px;
+    resize: vertical;
+}
+
+.semigapp-checkbox,
+.semigapp-radio {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+}
+
+.semigapp-checkbox input,
+.semigapp-radio input {
+    width: 18px;
+    height: 18px;
+    margin: 0;
+}
+
+/* ==========================================================================
+   Cards
+   ========================================================================== */
+
+.semigapp-card {
+    background-color: #fff;
+    border: 1px solid var(--semigapp-border);
+    border-radius: var(--semigapp-radius);
+    overflow: hidden;
+}
+
+.semigapp-card-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--semigapp-border);
+    background-color: var(--semigapp-light);
+}
+
+.semigapp-card-header h3 {
+    margin: 0;
+    font-size: 16px;
+}
+
+.semigapp-card-body {
+    padding: 20px;
+}
+
+.semigapp-card-footer {
+    padding: 16px 20px;
+    border-top: 1px solid var(--semigapp-border);
+    background-color: var(--semigapp-light);
+}
+
+/* ==========================================================================
+   Badges
+   ========================================================================== */
+
+.semigapp-badge {
+    display: inline-flex;
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 500;
+    border-radius: 20px;
+}
+
+.semigapp-badge-primary { background-color: #dbeafe; color: #1d4ed8; }
+.semigapp-badge-success { background-color: #d1fae5; color: #047857; }
+.semigapp-badge-warning { background-color: #fef3c7; color: #b45309; }
+.semigapp-badge-danger { background-color: #fee2e2; color: #b91c1c; }
+.semigapp-badge-secondary { background-color: #f1f5f9; color: #475569; }
+
+/* ==========================================================================
+   Shop Styles
+   ========================================================================== */
+
+.semigapp-products {
+    display: grid;
+    gap: 24px;
+}
+
+.semigapp-product-card {
+    background: #fff;
+    border: 1px solid var(--semigapp-border);
+    border-radius: var(--semigapp-radius);
+    overflow: hidden;
+    transition: box-shadow var(--semigapp-transition);
+}
+
+.semigapp-product-card:hover {
+    box-shadow: var(--semigapp-shadow-md);
+}
+
+.semigapp-product-image {
+    position: relative;
+    aspect-ratio: 1;
+    overflow: hidden;
+    background-color: var(--semigapp-light);
+}
+
+.semigapp-product-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.semigapp-product-badge {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+}
+
+.semigapp-product-info {
+    padding: 16px;
+}
+
+.semigapp-product-title {
+    margin: 0 0 8px;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.semigapp-product-title a {
+    color: var(--semigapp-dark);
+    text-decoration: none;
+}
+
+.semigapp-product-price {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--semigapp-primary);
+}
+
+.semigapp-product-price .sale-price {
+    text-decoration: line-through;
+    color: var(--semigapp-text-light);
+    font-size: 14px;
+    margin-left: 8px;
+}
+
+.semigapp-add-to-cart {
+    width: 100%;
+    margin-top: 12px;
+}
+
+/* Cart */
+.semigapp-cart-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.semigapp-cart-table th,
+.semigapp-cart-table td {
+    padding: 16px;
+    text-align: left;
+    border-bottom: 1px solid var(--semigapp-border);
+}
+
+.semigapp-cart-table th {
+    background-color: var(--semigapp-light);
+    font-weight: 600;
+}
+
+.semigapp-cart-item-image {
+    width: 80px;
+    height: 80px;
+    object-fit: cover;
+    border-radius: 4px;
+}
+
+.semigapp-cart-quantity {
+    width: 80px;
+}
+
+.semigapp-cart-totals {
+    max-width: 400px;
+    margin-left: auto;
+    margin-top: 30px;
+}
+
+.semigapp-cart-totals-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--semigapp-border);
+}
+
+.semigapp-cart-totals-row.total {
+    font-size: 18px;
+    font-weight: 700;
+}
+
+/* Checkout */
+.semigapp-checkout {
+    display: grid;
+    grid-template-columns: 1fr 400px;
+    gap: 40px;
+}
+
+@media (max-width: 992px) {
+    .semigapp-checkout {
+        grid-template-columns: 1fr;
+    }
+}
+
+.semigapp-checkout-section {
+    margin-bottom: 30px;
+}
+
+.semigapp-checkout-section h3 {
+    margin: 0 0 16px;
+    font-size: 18px;
+}
+
+.semigapp-payment-method {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px;
+    border: 1px solid var(--semigapp-border);
+    border-radius: var(--semigapp-radius);
+    margin-bottom: 10px;
+    cursor: pointer;
+    transition: border-color var(--semigapp-transition);
+}
+
+.semigapp-payment-method:hover,
+.semigapp-payment-method.selected {
+    border-color: var(--semigapp-primary);
+}
+
+.semigapp-payment-method img {
+    height: 24px;
+    width: auto;
+}
+
+/* ==========================================================================
+   Events Styles
+   ========================================================================== */
+
+.semigapp-events-list {
+    display: grid;
+    gap: 20px;
+}
+
+.semigapp-event-card {
+    display: flex;
+    gap: 20px;
+    background: #fff;
+    border: 1px solid var(--semigapp-border);
+    border-radius: var(--semigapp-radius);
+    overflow: hidden;
+}
+
+@media (max-width: 600px) {
+    .semigapp-event-card {
+        flex-direction: column;
+    }
+}
+
+.semigapp-event-date {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 100px;
+    padding: 20px;
+    background-color: var(--semigapp-primary);
+    color: #fff;
+    text-align: center;
+}
+
+.semigapp-event-date .day {
+    font-size: 32px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.semigapp-event-date .month {
+    font-size: 14px;
+    text-transform: uppercase;
+    margin-top: 4px;
+}
+
+.semigapp-event-info {
+    flex: 1;
+    padding: 20px;
+}
+
+.semigapp-event-title {
+    margin: 0 0 8px;
+    font-size: 18px;
+}
+
+.semigapp-event-title a {
+    color: var(--semigapp-dark);
+    text-decoration: none;
+}
+
+.semigapp-event-meta {
+    display: flex;
+    gap: 20px;
+    margin-top: 12px;
+    font-size: 14px;
+    color: var(--semigapp-text-light);
+}
+
+.semigapp-event-meta span {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* Calendar */
+.semigapp-calendar {
+    background: #fff;
+    border: 1px solid var(--semigapp-border);
+    border-radius: var(--semigapp-radius);
+    overflow: hidden;
+}
+
+.semigapp-calendar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    background-color: var(--semigapp-light);
+    border-bottom: 1px solid var(--semigapp-border);
+}
+
+.semigapp-calendar-nav {
+    background: none;
+    border: none;
+    padding: 8px;
+    cursor: pointer;
+    font-size: 18px;
+}
+
+.semigapp-calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+}
+
+.semigapp-calendar-day-header {
+    padding: 12px;
+    text-align: center;
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+    color: var(--semigapp-text-light);
+    border-bottom: 1px solid var(--semigapp-border);
+}
+
+.semigapp-calendar-day {
+    min-height: 80px;
+    padding: 8px;
+    border-bottom: 1px solid var(--semigapp-border);
+    border-right: 1px solid var(--semigapp-border);
+}
+
+.semigapp-calendar-day:nth-child(7n) {
+    border-right: none;
+}
+
+.semigapp-calendar-day.other-month {
+    background-color: var(--semigapp-light);
+    color: var(--semigapp-text-light);
+}
+
+.semigapp-calendar-day.today {
+    background-color: #eff6ff;
+}
+
+.semigapp-calendar-day-number {
+    font-weight: 500;
+    margin-bottom: 4px;
+}
+
+.semigapp-calendar-event {
+    display: block;
+    padding: 2px 6px;
+    margin-top: 2px;
+    font-size: 11px;
+    background-color: var(--semigapp-primary);
+    color: #fff;
+    border-radius: 3px;
+    text-decoration: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ==========================================================================
+   Membership Styles
+   ========================================================================== */
+
+.semigapp-membership-levels {
+    display: grid;
+    gap: 24px;
+}
+
+.semigapp-membership-card {
+    background: #fff;
+    border: 2px solid var(--semigapp-border);
+    border-radius: var(--semigapp-radius);
+    text-align: center;
+    transition: border-color var(--semigapp-transition);
+}
+
+.semigapp-membership-card:hover {
+    border-color: var(--semigapp-primary);
+}
+
+.semigapp-membership-card.featured {
+    border-color: var(--semigapp-primary);
+    position: relative;
+}
+
+.semigapp-membership-card.featured::before {
+    content: 'Popular';
+    position: absolute;
+    top: -12px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 4px 16px;
+    background-color: var(--semigapp-primary);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    border-radius: 20px;
+}
+
+.semigapp-membership-header {
+    padding: 30px 20px;
+    border-bottom: 1px solid var(--semigapp-border);
+}
+
+.semigapp-membership-name {
+    margin: 0 0 10px;
+    font-size: 20px;
+    font-weight: 600;
+}
+
+.semigapp-membership-price {
+    font-size: 40px;
+    font-weight: 700;
+    color: var(--semigapp-primary);
+}
+
+.semigapp-membership-price span {
+    font-size: 14px;
+    font-weight: 400;
+    color: var(--semigapp-text-light);
+}
+
+.semigapp-membership-features {
+    padding: 20px;
+}
+
+.semigapp-membership-features ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.semigapp-membership-features li {
+    padding: 10px 0;
+    border-bottom: 1px solid var(--semigapp-border);
+}
+
+.semigapp-membership-features li:last-child {
+    border-bottom: none;
+}
+
+.semigapp-membership-footer {
+    padding: 20px;
+}
+
+/* ==========================================================================
+   Newsletter Styles
+   ========================================================================== */
+
+.semigapp-newsletter-form {
+    max-width: 500px;
+}
+
+.semigapp-newsletter-form .semigapp-form-row {
+    display: flex;
+    gap: 10px;
+}
+
+.semigapp-newsletter-form .semigapp-form-row .semigapp-input {
+    flex: 1;
+}
+
+.semigapp-newsletter-message {
+    margin-top: 12px;
+    padding: 12px;
+    border-radius: var(--semigapp-radius);
+}
+
+.semigapp-newsletter-message.success {
+    background-color: #d1fae5;
+    color: #047857;
+}
+
+.semigapp-newsletter-message.error {
+    background-color: #fee2e2;
+    color: #b91c1c;
+}
+
+/* ==========================================================================
+   Project Styles
+   ========================================================================== */
+
+.semigapp-projects-list {
+    display: grid;
+    gap: 20px;
+}
+
+.semigapp-project-card {
+    background: #fff;
+    border: 1px solid var(--semigapp-border);
+    border-radius: var(--semigapp-radius);
+    padding: 20px;
+}
+
+.semigapp-project-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 16px;
+}
+
+.semigapp-project-title {
+    margin: 0;
+    font-size: 18px;
+}
+
+.semigapp-project-title a {
+    color: var(--semigapp-dark);
+    text-decoration: none;
+}
+
+.semigapp-project-progress {
+    margin-top: 16px;
+}
+
+.semigapp-progress-bar {
+    height: 8px;
+    background-color: var(--semigapp-light);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.semigapp-progress-bar-fill {
+    height: 100%;
+    background-color: var(--semigapp-success);
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+.semigapp-progress-text {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 8px;
+    font-size: 13px;
+    color: var(--semigapp-text-light);
+}
+
+/* Task Board (Kanban) */
+.semigapp-task-board {
+    display: flex;
+    gap: 20px;
+    overflow-x: auto;
+    padding-bottom: 20px;
+}
+
+.semigapp-task-column {
+    min-width: 280px;
+    background-color: var(--semigapp-light);
+    border-radius: var(--semigapp-radius);
+    padding: 16px;
+}
+
+.semigapp-task-column-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.semigapp-task-column-title {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.semigapp-task-count {
+    background-color: var(--semigapp-border);
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 12px;
+}
+
+.semigapp-task-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-height: 100px;
+}
+
+.semigapp-task-card {
+    background: #fff;
+    border: 1px solid var(--semigapp-border);
+    border-radius: var(--semigapp-radius);
+    padding: 12px;
+    cursor: grab;
+}
+
+.semigapp-task-card:active {
+    cursor: grabbing;
+}
+
+.semigapp-task-title {
+    margin: 0 0 8px;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.semigapp-task-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    color: var(--semigapp-text-light);
+}
+
+.semigapp-task-priority {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.semigapp-task-priority.low { background-color: var(--semigapp-info); }
+.semigapp-task-priority.medium { background-color: var(--semigapp-warning); }
+.semigapp-task-priority.high { background-color: #f97316; }
+.semigapp-task-priority.urgent { background-color: var(--semigapp-danger); }
+
+/* ==========================================================================
+   Account Styles
+   ========================================================================== */
+
+.semigapp-account {
+    display: grid;
+    grid-template-columns: 250px 1fr;
+    gap: 30px;
+}
+
+@media (max-width: 768px) {
+    .semigapp-account {
+        grid-template-columns: 1fr;
+    }
+}
+
+.semigapp-account-nav {
+    background: #fff;
+    border: 1px solid var(--semigapp-border);
+    border-radius: var(--semigapp-radius);
+    overflow: hidden;
+}
+
+.semigapp-account-nav a {
+    display: block;
+    padding: 14px 20px;
+    color: var(--semigapp-text);
+    text-decoration: none;
+    border-bottom: 1px solid var(--semigapp-border);
+    transition: background-color var(--semigapp-transition);
+}
+
+.semigapp-account-nav a:last-child {
+    border-bottom: none;
+}
+
+.semigapp-account-nav a:hover,
+.semigapp-account-nav a.active {
+    background-color: var(--semigapp-light);
+}
+
+.semigapp-account-nav a.active {
+    color: var(--semigapp-primary);
+    font-weight: 500;
+}
+
+.semigapp-account-content {
+    background: #fff;
+    border: 1px solid var(--semigapp-border);
+    border-radius: var(--semigapp-radius);
+    padding: 30px;
+}
+
+/* ==========================================================================
+   Alerts & Messages
+   ========================================================================== */
+
+.semigapp-alert {
+    padding: 16px 20px;
+    border-radius: var(--semigapp-radius);
+    margin-bottom: 20px;
+}
+
+.semigapp-alert-success {
+    background-color: #d1fae5;
+    color: #047857;
+    border: 1px solid #a7f3d0;
+}
+
+.semigapp-alert-error {
+    background-color: #fee2e2;
+    color: #b91c1c;
+    border: 1px solid #fecaca;
+}
+
+.semigapp-alert-warning {
+    background-color: #fef3c7;
+    color: #b45309;
+    border: 1px solid #fde68a;
+}
+
+.semigapp-alert-info {
+    background-color: #dbeafe;
+    color: #1d4ed8;
+    border: 1px solid #bfdbfe;
+}
+
+/* ==========================================================================
+   Loading States
+   ========================================================================== */
+
+.semigapp-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+}
+
+.semigapp-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--semigapp-border);
+    border-top-color: var(--semigapp-primary);
+    border-radius: 50%;
+    animation: semigapp-spin 0.8s linear infinite;
+}
+
+@keyframes semigapp-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ==========================================================================
+   Restricted Content
+   ========================================================================== */
+
+.semigapp-restricted-content {
+    text-align: center;
+    padding: 40px;
+    background-color: var(--semigapp-light);
+    border: 1px solid var(--semigapp-border);
+    border-radius: var(--semigapp-radius);
+}
+
+.semigapp-restricted-content p {
+    margin-bottom: 20px;
+    color: var(--semigapp-text-light);
+}
+
+/* ==========================================================================
+   Empty States
+   ========================================================================== */
+
+.semigapp-empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--semigapp-text-light);
+}
+
+.semigapp-empty-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    opacity: 0.5;
+}
+
+.semigapp-empty h3 {
+    margin: 0 0 8px;
+    color: var(--semigapp-text);
+}
+
+.semigapp-empty p {
+    margin: 0;
+}
