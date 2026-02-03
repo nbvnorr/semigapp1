@@ -357,4 +357,42 @@ abstract class Base_Gateway {
     public function process_refund($order, $amount, $reason = '') {
         return false;
     }
+
+    /**
+     * Verify payment status
+     *
+     * Checks with the payment provider to verify the current status of a payment.
+     * Used for payment confirmation callbacks and order status verification.
+     *
+     * @param object $order Order object with transaction details.
+     * @return array {
+     *     @type bool   $success  Whether verification was successful.
+     *     @type string $status   Payment status: 'completed', 'pending', 'failed', 'refunded'.
+     *     @type string $message  Human-readable status message.
+     *     @type array  $data     Additional payment data from the provider.
+     * }
+     */
+    public function verify_payment($order) {
+        // Default implementation returns pending status
+        // Subclasses should override this to check with their payment provider
+        return array(
+            'success' => false,
+            'status' => 'pending',
+            'message' => __('Payment verification not implemented for this gateway.', 'semigapp'),
+            'data' => array(),
+        );
+    }
+
+    /**
+     * Check if a payment is complete
+     *
+     * Helper method to verify if a payment has been successfully completed.
+     *
+     * @param object $order Order object.
+     * @return bool True if payment is confirmed complete.
+     */
+    public function is_payment_complete($order) {
+        $verification = $this->verify_payment($order);
+        return $verification['success'] && $verification['status'] === 'completed';
+    }
 }

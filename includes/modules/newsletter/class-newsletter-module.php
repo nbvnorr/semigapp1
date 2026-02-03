@@ -809,13 +809,17 @@ class Newsletter_Module extends Base_Module {
 
         $relations_table = $this->db->get_table('subscriber_list_relations');
         $subscribers_table = $this->db->get_table('subscribers');
-        $list_ids = implode(',', array_map('intval', $campaign->list_ids));
 
-        return $wpdb->get_results(
+        // Use prepared statement with proper placeholders
+        $list_ids = array_map('intval', $campaign->list_ids);
+        $placeholders = implode(',', array_fill(0, count($list_ids), '%d'));
+
+        return $wpdb->get_results($wpdb->prepare(
             "SELECT DISTINCT s.* FROM $subscribers_table s
             INNER JOIN $relations_table r ON s.id = r.subscriber_id
-            WHERE r.list_id IN ($list_ids) AND s.status = 'active'"
-        );
+            WHERE r.list_id IN ($placeholders) AND s.status = 'active'",
+            $list_ids
+        ));
     }
 
     /**
