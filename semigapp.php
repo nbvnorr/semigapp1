@@ -36,13 +36,14 @@ define('SEMIGAPP_MIN_WP_VERSION', '5.8');
 
 /**
  * Check minimum requirements before loading plugin
+ * Note: Don't use __() here as textdomain isn't loaded yet
  */
 function semigapp_check_requirements() {
     $errors = array();
 
     if (version_compare(PHP_VERSION, SEMIGAPP_MIN_PHP_VERSION, '<')) {
         $errors[] = sprintf(
-            __('SemigApp requires PHP version %s or higher. You are running version %s.', 'semigapp'),
+            'SemigApp requires PHP version %s or higher. You are running version %s.',
             SEMIGAPP_MIN_PHP_VERSION,
             PHP_VERSION
         );
@@ -50,7 +51,7 @@ function semigapp_check_requirements() {
 
     if (version_compare(get_bloginfo('version'), SEMIGAPP_MIN_WP_VERSION, '<')) {
         $errors[] = sprintf(
-            __('SemigApp requires WordPress version %s or higher. You are running version %s.', 'semigapp'),
+            'SemigApp requires WordPress version %s or higher. You are running version %s.',
             SEMIGAPP_MIN_WP_VERSION,
             get_bloginfo('version')
         );

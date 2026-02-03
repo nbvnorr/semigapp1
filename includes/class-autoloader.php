@@ -91,6 +91,9 @@ class Autoloader {
         $name = preg_replace('/([A-Z]+)([A-Z][a-z])/', '$1-$2', $name);
         $name = strtolower($name);
 
+        // Convert underscores to hyphens (for class names like Projects_Module)
+        $name = str_replace('_', '-', $name);
+
         // Determine the prefix based on naming conventions
         if (strpos($class_name, 'interface') !== false || strpos($class_name, 'Interface') !== false) {
             return 'interface-' . str_replace('-interface', '', $name) . '.php';
