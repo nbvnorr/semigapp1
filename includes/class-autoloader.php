@@ -56,8 +56,11 @@ class Autoloader {
         // Get the relative class name
         $relative_class = substr($class, $len);
 
-        // Convert namespace separators to directory separators
+        // Convert namespace separators to directory separators and lowercase
         $relative_path = strtolower(str_replace('\\', '/', $relative_class));
+
+        // Convert underscores to hyphens in the entire path (directories and class name)
+        $relative_path = str_replace('_', '-', $relative_path);
 
         // Convert class name to file name format (CamelCase to kebab-case with class- prefix)
         $parts = explode('/', $relative_path);
