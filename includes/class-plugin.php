@@ -56,8 +56,8 @@ class Plugin {
      * Initialize the plugin
      */
     public function init() {
-        // Load text domain for translations
-        $this->load_textdomain();
+        // Load text domain on init action (WordPress 6.7+ requirement)
+        add_action('init', array($this, 'load_textdomain'));
 
         // Initialize core components
         $this->init_core();
@@ -85,7 +85,7 @@ class Plugin {
     /**
      * Load plugin text domain
      */
-    private function load_textdomain() {
+    public function load_textdomain() {
         load_plugin_textdomain(
             'semigapp',
             false,
