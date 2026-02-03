@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
 /**
  * Class Rest_Controller
  *
- * Handles REST API endpoints
+ * Handles REST API endpoints with proper security
  */
 class Rest_Controller {
 
@@ -25,6 +25,13 @@ class Rest_Controller {
      * @var string
      */
     private $namespace = 'semigapp/v1';
+
+    /**
+     * Rate limit transient prefix
+     *
+     * @var string
+     */
+    private $rate_limit_prefix = 'semigapp_rate_';
 
     /**
      * Initialize REST API
@@ -37,17 +44,19 @@ class Rest_Controller {
      * Register REST routes
      */
     public function register_routes() {
-        // Projects
+        // Projects (authenticated only)
         register_rest_route($this->namespace, '/projects', array(
             array(
                 'methods' => \WP_REST_Server::READABLE,
                 'callback' => array($this, 'get_projects'),
                 'permission_callback' => array($this, 'check_read_permission'),
+                'args' => $this->get_pagination_args(),
             ),
             array(
                 'methods' => \WP_REST_Server::CREATABLE,
                 'callback' => array($this, 'create_project'),
                 'permission_callback' => array($this, 'check_write_permission'),
+                'args' => $this->get_project_args(),
             ),
         ));
 
@@ -56,30 +65,40 @@ class Rest_Controller {
                 'methods' => \WP_REST_Server::READABLE,
                 'callback' => array($this, 'get_project'),
                 'permission_callback' => array($this, 'check_read_permission'),
+                'args' => array('id' => $this->get_id_arg()),
             ),
             array(
                 'methods' => \WP_REST_Server::EDITABLE,
                 'callback' => array($this, 'update_project'),
                 'permission_callback' => array($this, 'check_write_permission'),
+                'args' => array_merge(array('id' => $this->get_id_arg()), $this->get_project_args()),
             ),
             array(
                 'methods' => \WP_REST_Server::DELETABLE,
                 'callback' => array($this, 'delete_project'),
                 'permission_callback' => array($this, 'check_write_permission'),
+                'args' => array('id' => $this->get_id_arg()),
             ),
         ));
 
-        // Tasks
+        // Tasks (authenticated only)
         register_rest_route($this->namespace, '/tasks', array(
             array(
                 'methods' => \WP_REST_Server::READABLE,
                 'callback' => array($this, 'get_tasks'),
                 'permission_callback' => array($this, 'check_read_permission'),
+                'args' => array_merge($this->get_pagination_args(), array(
+                    'project_id' => array(
+                        'type' => 'integer',
+                        'sanitize_callback' => 'absint',
+                    ),
+                )),
             ),
             array(
                 'methods' => \WP_REST_Server::CREATABLE,
                 'callback' => array($this, 'create_task'),
                 'permission_callback' => array($this, 'check_write_permission'),
+                'args' => $this->get_task_args(),
             ),
         ));
 
@@ -88,30 +107,40 @@ class Rest_Controller {
                 'methods' => \WP_REST_Server::READABLE,
                 'callback' => array($this, 'get_task'),
                 'permission_callback' => array($this, 'check_read_permission'),
+                'args' => array('id' => $this->get_id_arg()),
             ),
             array(
                 'methods' => \WP_REST_Server::EDITABLE,
                 'callback' => array($this, 'update_task'),
                 'permission_callback' => array($this, 'check_write_permission'),
+                'args' => array_merge(array('id' => $this->get_id_arg()), $this->get_task_args()),
             ),
             array(
                 'methods' => \WP_REST_Server::DELETABLE,
                 'callback' => array($this, 'delete_task'),
                 'permission_callback' => array($this, 'check_write_permission'),
+                'args' => array('id' => $this->get_id_arg()),
             ),
         ));
 
-        // Events
+        // Events (public read, authenticated write)
         register_rest_route($this->namespace, '/events', array(
             array(
                 'methods' => \WP_REST_Server::READABLE,
                 'callback' => array($this, 'get_events'),
-                'permission_callback' => '__return_true',
+                'permission_callback' => array($this, 'check_public_read_permission'),
+                'args' => array_merge($this->get_pagination_args(), array(
+                    'upcoming' => array(
+                        'type' => 'boolean',
+                        'default' => false,
+                    ),
+                )),
             ),
             array(
                 'methods' => \WP_REST_Server::CREATABLE,
                 'callback' => array($this, 'create_event'),
-                'permission_callback' => array($this, 'check_write_permission'),
+                'permission_callback' => array($this, 'check_events_permission'),
+                'args' => $this->get_event_args(),
             ),
         ));
 
@@ -119,59 +148,95 @@ class Rest_Controller {
             array(
                 'methods' => \WP_REST_Server::READABLE,
                 'callback' => array($this, 'get_event'),
-                'permission_callback' => '__return_true',
+                'permission_callback' => array($this, 'check_public_read_permission'),
+                'args' => array('id' => $this->get_id_arg()),
             ),
             array(
                 'methods' => \WP_REST_Server::EDITABLE,
                 'callback' => array($this, 'update_event'),
-                'permission_callback' => array($this, 'check_write_permission'),
+                'permission_callback' => array($this, 'check_events_permission'),
+                'args' => array_merge(array('id' => $this->get_id_arg()), $this->get_event_args()),
             ),
         ));
 
         register_rest_route($this->namespace, '/events/(?P<id>\d+)/register', array(
             'methods' => \WP_REST_Server::CREATABLE,
             'callback' => array($this, 'register_for_event'),
-            'permission_callback' => '__return_true',
+            'permission_callback' => array($this, 'check_public_write_permission'),
+            'args' => array_merge(array('id' => $this->get_id_arg()), $this->get_registration_args()),
         ));
 
-        // Calendar
+        // Calendar (public read)
         register_rest_route($this->namespace, '/calendar/(?P<year>\d+)/(?P<month>\d+)', array(
             'methods' => \WP_REST_Server::READABLE,
             'callback' => array($this, 'get_calendar_events'),
-            'permission_callback' => '__return_true',
+            'permission_callback' => array($this, 'check_public_read_permission'),
+            'args' => array(
+                'year' => array(
+                    'type' => 'integer',
+                    'required' => true,
+                    'minimum' => 2000,
+                    'maximum' => 2100,
+                    'sanitize_callback' => 'absint',
+                ),
+                'month' => array(
+                    'type' => 'integer',
+                    'required' => true,
+                    'minimum' => 1,
+                    'maximum' => 12,
+                    'sanitize_callback' => 'absint',
+                ),
+            ),
         ));
 
-        // Products
+        // Products (public read)
         register_rest_route($this->namespace, '/products', array(
             array(
                 'methods' => \WP_REST_Server::READABLE,
                 'callback' => array($this, 'get_products'),
-                'permission_callback' => '__return_true',
+                'permission_callback' => array($this, 'check_public_read_permission'),
+                'args' => $this->get_pagination_args(),
             ),
         ));
 
         register_rest_route($this->namespace, '/products/(?P<id>\d+)', array(
             'methods' => \WP_REST_Server::READABLE,
             'callback' => array($this, 'get_product'),
-            'permission_callback' => '__return_true',
+            'permission_callback' => array($this, 'check_public_read_permission'),
+            'args' => array('id' => $this->get_id_arg()),
         ));
 
-        // Cart
+        // Cart (session-based, rate limited)
         register_rest_route($this->namespace, '/cart', array(
             array(
                 'methods' => \WP_REST_Server::READABLE,
                 'callback' => array($this, 'get_cart'),
-                'permission_callback' => '__return_true',
+                'permission_callback' => array($this, 'check_cart_permission'),
             ),
             array(
                 'methods' => \WP_REST_Server::CREATABLE,
                 'callback' => array($this, 'add_to_cart'),
-                'permission_callback' => '__return_true',
+                'permission_callback' => array($this, 'check_cart_permission'),
+                'args' => array(
+                    'product_id' => array(
+                        'type' => 'integer',
+                        'required' => true,
+                        'sanitize_callback' => 'absint',
+                        'validate_callback' => array($this, 'validate_product_exists'),
+                    ),
+                    'quantity' => array(
+                        'type' => 'integer',
+                        'default' => 1,
+                        'minimum' => 1,
+                        'maximum' => 99,
+                        'sanitize_callback' => 'absint',
+                    ),
+                ),
             ),
             array(
                 'methods' => \WP_REST_Server::DELETABLE,
                 'callback' => array($this, 'clear_cart'),
-                'permission_callback' => '__return_true',
+                'permission_callback' => array($this, 'check_cart_permission'),
             ),
         ));
 
@@ -179,50 +244,95 @@ class Rest_Controller {
             array(
                 'methods' => \WP_REST_Server::EDITABLE,
                 'callback' => array($this, 'update_cart_item'),
-                'permission_callback' => '__return_true',
+                'permission_callback' => array($this, 'check_cart_permission'),
+                'args' => array(
+                    'key' => array(
+                        'type' => 'string',
+                        'required' => true,
+                        'sanitize_callback' => 'sanitize_text_field',
+                    ),
+                    'quantity' => array(
+                        'type' => 'integer',
+                        'required' => true,
+                        'minimum' => 0,
+                        'maximum' => 99,
+                        'sanitize_callback' => 'absint',
+                    ),
+                ),
             ),
             array(
                 'methods' => \WP_REST_Server::DELETABLE,
                 'callback' => array($this, 'remove_cart_item'),
-                'permission_callback' => '__return_true',
+                'permission_callback' => array($this, 'check_cart_permission'),
+                'args' => array(
+                    'key' => array(
+                        'type' => 'string',
+                        'required' => true,
+                        'sanitize_callback' => 'sanitize_text_field',
+                    ),
+                ),
             ),
         ));
 
-        // Checkout
+        // Checkout (rate limited, validated)
         register_rest_route($this->namespace, '/checkout', array(
             'methods' => \WP_REST_Server::CREATABLE,
             'callback' => array($this, 'process_checkout'),
-            'permission_callback' => '__return_true',
+            'permission_callback' => array($this, 'check_checkout_permission'),
+            'args' => $this->get_checkout_args(),
         ));
 
-        // Orders
+        // Orders (authenticated)
         register_rest_route($this->namespace, '/orders', array(
             'methods' => \WP_REST_Server::READABLE,
             'callback' => array($this, 'get_orders'),
             'permission_callback' => array($this, 'check_read_permission'),
+            'args' => $this->get_pagination_args(),
         ));
 
         register_rest_route($this->namespace, '/orders/(?P<id>\d+)', array(
             'methods' => \WP_REST_Server::READABLE,
             'callback' => array($this, 'get_order'),
             'permission_callback' => array($this, 'check_order_permission'),
+            'args' => array('id' => $this->get_id_arg()),
         ));
 
-        // Newsletter
+        // Newsletter (rate limited)
         register_rest_route($this->namespace, '/newsletter/subscribe', array(
             'methods' => \WP_REST_Server::CREATABLE,
             'callback' => array($this, 'newsletter_subscribe'),
-            'permission_callback' => '__return_true',
+            'permission_callback' => array($this, 'check_newsletter_permission'),
+            'args' => array(
+                'email' => array(
+                    'type' => 'string',
+                    'required' => true,
+                    'format' => 'email',
+                    'sanitize_callback' => 'sanitize_email',
+                    'validate_callback' => array($this, 'validate_email'),
+                ),
+                'first_name' => array(
+                    'type' => 'string',
+                    'sanitize_callback' => 'sanitize_text_field',
+                ),
+                'last_name' => array(
+                    'type' => 'string',
+                    'sanitize_callback' => 'sanitize_text_field',
+                ),
+                'hp_field' => array(
+                    'type' => 'string',
+                    'description' => 'Honeypot field - must be empty',
+                ),
+            ),
         ));
 
-        // Membership
+        // Membership (public read)
         register_rest_route($this->namespace, '/membership/levels', array(
             'methods' => \WP_REST_Server::READABLE,
             'callback' => array($this, 'get_membership_levels'),
-            'permission_callback' => '__return_true',
+            'permission_callback' => array($this, 'check_public_read_permission'),
         ));
 
-        // User account
+        // User account (authenticated)
         register_rest_route($this->namespace, '/account', array(
             'methods' => \WP_REST_Server::READABLE,
             'callback' => array($this, 'get_account'),
@@ -245,19 +355,22 @@ class Rest_Controller {
         register_rest_route($this->namespace, '/events/(?P<id>\d+)/apply', array(
             'methods' => \WP_REST_Server::CREATABLE,
             'callback' => array($this, 'apply_for_event'),
-            'permission_callback' => '__return_true',
+            'permission_callback' => array($this, 'check_application_submit_permission'),
+            'args' => array_merge(array('id' => $this->get_id_arg()), $this->get_application_args()),
         ));
 
         register_rest_route($this->namespace, '/events/(?P<id>\d+)/applications', array(
             'methods' => \WP_REST_Server::READABLE,
             'callback' => array($this, 'get_event_applications'),
             'permission_callback' => array($this, 'check_events_permission'),
+            'args' => array_merge(array('id' => $this->get_id_arg()), $this->get_pagination_args()),
         ));
 
         register_rest_route($this->namespace, '/applications', array(
             'methods' => \WP_REST_Server::READABLE,
             'callback' => array($this, 'get_all_applications'),
             'permission_callback' => array($this, 'check_events_permission'),
+            'args' => $this->get_pagination_args(),
         ));
 
         register_rest_route($this->namespace, '/applications/(?P<id>\d+)', array(
@@ -265,11 +378,13 @@ class Rest_Controller {
                 'methods' => \WP_REST_Server::READABLE,
                 'callback' => array($this, 'get_application'),
                 'permission_callback' => array($this, 'check_application_permission'),
+                'args' => array('id' => $this->get_id_arg()),
             ),
             array(
                 'methods' => \WP_REST_Server::DELETABLE,
                 'callback' => array($this, 'cancel_application'),
                 'permission_callback' => array($this, 'check_application_permission'),
+                'args' => array('id' => $this->get_id_arg()),
             ),
         ));
 
@@ -277,23 +392,46 @@ class Rest_Controller {
             'methods' => \WP_REST_Server::CREATABLE,
             'callback' => array($this, 'approve_application'),
             'permission_callback' => array($this, 'check_events_permission'),
+            'args' => array(
+                'id' => $this->get_id_arg(),
+                'notes' => array(
+                    'type' => 'string',
+                    'sanitize_callback' => 'sanitize_textarea_field',
+                ),
+            ),
         ));
 
         register_rest_route($this->namespace, '/applications/(?P<id>\d+)/reject', array(
             'methods' => \WP_REST_Server::CREATABLE,
             'callback' => array($this, 'reject_application'),
             'permission_callback' => array($this, 'check_events_permission'),
+            'args' => array(
+                'id' => $this->get_id_arg(),
+                'reason' => array(
+                    'type' => 'string',
+                    'sanitize_callback' => 'sanitize_textarea_field',
+                ),
+                'notes' => array(
+                    'type' => 'string',
+                    'sanitize_callback' => 'sanitize_textarea_field',
+                ),
+            ),
         ));
 
         register_rest_route($this->namespace, '/applications/(?P<id>\d+)/waitlist', array(
             'methods' => \WP_REST_Server::CREATABLE,
             'callback' => array($this, 'waitlist_application'),
             'permission_callback' => array($this, 'check_events_permission'),
+            'args' => array('id' => $this->get_id_arg()),
         ));
     }
 
+    // =========================================================================
+    // PERMISSION CALLBACKS
+    // =========================================================================
+
     /**
-     * Check read permission
+     * Check read permission (must be logged in)
      *
      * @return bool
      */
@@ -302,7 +440,7 @@ class Rest_Controller {
     }
 
     /**
-     * Check write permission
+     * Check write permission (must be able to edit posts)
      *
      * @return bool
      */
@@ -320,7 +458,84 @@ class Rest_Controller {
     }
 
     /**
-     * Check order permission
+     * Check public read permission with rate limiting
+     *
+     * @param \WP_REST_Request $request Request.
+     * @return bool|\WP_Error
+     */
+    public function check_public_read_permission($request) {
+        // Rate limit: 100 requests per minute for reads
+        return $this->check_rate_limit('public_read', 100, 60);
+    }
+
+    /**
+     * Check public write permission with stricter rate limiting
+     *
+     * @param \WP_REST_Request $request Request.
+     * @return bool|\WP_Error
+     */
+    public function check_public_write_permission($request) {
+        // Rate limit: 10 requests per minute for writes
+        return $this->check_rate_limit('public_write', 10, 60);
+    }
+
+    /**
+     * Check cart permission (session-based)
+     *
+     * @param \WP_REST_Request $request Request.
+     * @return bool|\WP_Error
+     */
+    public function check_cart_permission($request) {
+        // Rate limit: 30 cart operations per minute
+        return $this->check_rate_limit('cart', 30, 60);
+    }
+
+    /**
+     * Check checkout permission with strict rate limiting
+     *
+     * @param \WP_REST_Request $request Request.
+     * @return bool|\WP_Error
+     */
+    public function check_checkout_permission($request) {
+        // Rate limit: 5 checkout attempts per minute
+        return $this->check_rate_limit('checkout', 5, 60);
+    }
+
+    /**
+     * Check newsletter subscription permission
+     *
+     * @param \WP_REST_Request $request Request.
+     * @return bool|\WP_Error
+     */
+    public function check_newsletter_permission($request) {
+        // Check honeypot field
+        $honeypot = $request->get_param('hp_field');
+        if (!empty($honeypot)) {
+            // Bot detected, silently reject
+            return new \WP_Error(
+                'bot_detected',
+                __('Subscription failed.', 'semigapp'),
+                array('status' => 400)
+            );
+        }
+
+        // Rate limit: 3 subscriptions per hour per IP
+        return $this->check_rate_limit('newsletter', 3, 3600);
+    }
+
+    /**
+     * Check application submission permission
+     *
+     * @param \WP_REST_Request $request Request.
+     * @return bool|\WP_Error
+     */
+    public function check_application_submit_permission($request) {
+        // Rate limit: 5 applications per hour
+        return $this->check_rate_limit('application', 5, 3600);
+    }
+
+    /**
+     * Check order permission (owner or admin)
      *
      * @param \WP_REST_Request $request Request.
      * @return bool
@@ -330,7 +545,7 @@ class Rest_Controller {
             return false;
         }
 
-        $order_id = $request->get_param('id');
+        $order_id = absint($request->get_param('id'));
         $plugin = \SemigApp\Plugin::get_instance();
         $webshop = $plugin->get_module('webshop');
         $order = $webshop->get_order($order_id);
@@ -348,7 +563,7 @@ class Rest_Controller {
      * @return bool
      */
     public function check_events_permission() {
-        return current_user_can('manage_semigapp_events');
+        return current_user_can('manage_semigapp_events') || current_user_can('manage_options');
     }
 
     /**
@@ -366,7 +581,7 @@ class Rest_Controller {
             return true;
         }
 
-        $application_id = $request->get_param('id');
+        $application_id = absint($request->get_param('id'));
         $plugin = \SemigApp\Plugin::get_instance();
         $events = $plugin->get_module('events');
         $application = $events->get_application($application_id);
@@ -376,6 +591,352 @@ class Rest_Controller {
         }
 
         return $application->user_id == get_current_user_id();
+    }
+
+    /**
+     * Check rate limit
+     *
+     * @param string $action  Action identifier.
+     * @param int    $limit   Maximum requests.
+     * @param int    $window  Time window in seconds.
+     * @return bool|\WP_Error
+     */
+    private function check_rate_limit($action, $limit, $window) {
+        $ip = $this->get_client_ip();
+        $key = $this->rate_limit_prefix . $action . '_' . md5($ip);
+
+        $current = get_transient($key);
+
+        if ($current === false) {
+            set_transient($key, 1, $window);
+            return true;
+        }
+
+        if ($current >= $limit) {
+            return new \WP_Error(
+                'rate_limit_exceeded',
+                __('Too many requests. Please try again later.', 'semigapp'),
+                array('status' => 429)
+            );
+        }
+
+        set_transient($key, $current + 1, $window);
+        return true;
+    }
+
+    /**
+     * Get client IP for rate limiting
+     *
+     * @return string
+     */
+    private function get_client_ip() {
+        if (!empty($_SERVER['REMOTE_ADDR'])) {
+            return sanitize_text_field($_SERVER['REMOTE_ADDR']);
+        }
+        return '127.0.0.1';
+    }
+
+    // =========================================================================
+    // ARGUMENT SCHEMAS
+    // =========================================================================
+
+    /**
+     * Get ID argument schema
+     *
+     * @return array
+     */
+    private function get_id_arg() {
+        return array(
+            'type' => 'integer',
+            'required' => true,
+            'minimum' => 1,
+            'sanitize_callback' => 'absint',
+        );
+    }
+
+    /**
+     * Get pagination arguments
+     *
+     * @return array
+     */
+    private function get_pagination_args() {
+        return array(
+            'per_page' => array(
+                'type' => 'integer',
+                'default' => 20,
+                'minimum' => 1,
+                'maximum' => 100,
+                'sanitize_callback' => 'absint',
+            ),
+            'offset' => array(
+                'type' => 'integer',
+                'default' => 0,
+                'minimum' => 0,
+                'sanitize_callback' => 'absint',
+            ),
+            'status' => array(
+                'type' => 'string',
+                'sanitize_callback' => 'sanitize_text_field',
+            ),
+        );
+    }
+
+    /**
+     * Get project arguments
+     *
+     * @return array
+     */
+    private function get_project_args() {
+        return array(
+            'name' => array(
+                'type' => 'string',
+                'required' => true,
+                'sanitize_callback' => 'sanitize_text_field',
+                'validate_callback' => function($value) {
+                    return !empty(trim($value));
+                },
+            ),
+            'description' => array(
+                'type' => 'string',
+                'sanitize_callback' => 'wp_kses_post',
+            ),
+            'status' => array(
+                'type' => 'string',
+                'enum' => array('planning', 'active', 'on-hold', 'completed', 'cancelled'),
+                'default' => 'planning',
+            ),
+            'start_date' => array(
+                'type' => 'string',
+                'format' => 'date',
+                'sanitize_callback' => 'sanitize_text_field',
+            ),
+            'end_date' => array(
+                'type' => 'string',
+                'format' => 'date',
+                'sanitize_callback' => 'sanitize_text_field',
+            ),
+        );
+    }
+
+    /**
+     * Get task arguments
+     *
+     * @return array
+     */
+    private function get_task_args() {
+        return array(
+            'project_id' => array(
+                'type' => 'integer',
+                'required' => true,
+                'sanitize_callback' => 'absint',
+            ),
+            'name' => array(
+                'type' => 'string',
+                'required' => true,
+                'sanitize_callback' => 'sanitize_text_field',
+            ),
+            'description' => array(
+                'type' => 'string',
+                'sanitize_callback' => 'wp_kses_post',
+            ),
+            'status' => array(
+                'type' => 'string',
+                'enum' => array('todo', 'in-progress', 'review', 'done'),
+                'default' => 'todo',
+            ),
+            'priority' => array(
+                'type' => 'string',
+                'enum' => array('low', 'medium', 'high', 'urgent'),
+                'default' => 'medium',
+            ),
+            'assigned_to' => array(
+                'type' => 'integer',
+                'sanitize_callback' => 'absint',
+            ),
+            'due_date' => array(
+                'type' => 'string',
+                'format' => 'date',
+                'sanitize_callback' => 'sanitize_text_field',
+            ),
+        );
+    }
+
+    /**
+     * Get event arguments
+     *
+     * @return array
+     */
+    private function get_event_args() {
+        return array(
+            'title' => array(
+                'type' => 'string',
+                'required' => true,
+                'sanitize_callback' => 'sanitize_text_field',
+            ),
+            'description' => array(
+                'type' => 'string',
+                'sanitize_callback' => 'wp_kses_post',
+            ),
+            'start_date' => array(
+                'type' => 'string',
+                'required' => true,
+                'sanitize_callback' => 'sanitize_text_field',
+            ),
+            'end_date' => array(
+                'type' => 'string',
+                'sanitize_callback' => 'sanitize_text_field',
+            ),
+            'location' => array(
+                'type' => 'string',
+                'sanitize_callback' => 'sanitize_text_field',
+            ),
+            'max_attendees' => array(
+                'type' => 'integer',
+                'sanitize_callback' => 'absint',
+            ),
+        );
+    }
+
+    /**
+     * Get registration arguments
+     *
+     * @return array
+     */
+    private function get_registration_args() {
+        return array(
+            'name' => array(
+                'type' => 'string',
+                'required' => true,
+                'sanitize_callback' => 'sanitize_text_field',
+            ),
+            'email' => array(
+                'type' => 'string',
+                'required' => true,
+                'format' => 'email',
+                'sanitize_callback' => 'sanitize_email',
+            ),
+            'phone' => array(
+                'type' => 'string',
+                'sanitize_callback' => 'sanitize_text_field',
+            ),
+        );
+    }
+
+    /**
+     * Get checkout arguments
+     *
+     * @return array
+     */
+    private function get_checkout_args() {
+        return array(
+            'payment_method' => array(
+                'type' => 'string',
+                'required' => true,
+                'enum' => array('klarna', 'swish', 'stripe'),
+                'sanitize_callback' => 'sanitize_text_field',
+            ),
+            'billing_address' => array(
+                'type' => 'object',
+                'required' => true,
+                'properties' => array(
+                    'email' => array(
+                        'type' => 'string',
+                        'format' => 'email',
+                        'required' => true,
+                    ),
+                    'first_name' => array(
+                        'type' => 'string',
+                        'required' => true,
+                    ),
+                    'last_name' => array(
+                        'type' => 'string',
+                        'required' => true,
+                    ),
+                    'address_1' => array(
+                        'type' => 'string',
+                        'required' => true,
+                    ),
+                    'postcode' => array(
+                        'type' => 'string',
+                        'required' => true,
+                    ),
+                    'city' => array(
+                        'type' => 'string',
+                        'required' => true,
+                    ),
+                    'country' => array(
+                        'type' => 'string',
+                        'default' => 'SE',
+                    ),
+                    'phone' => array(
+                        'type' => 'string',
+                    ),
+                ),
+            ),
+            'customer_note' => array(
+                'type' => 'string',
+                'sanitize_callback' => 'sanitize_textarea_field',
+            ),
+        );
+    }
+
+    /**
+     * Get application arguments
+     *
+     * @return array
+     */
+    private function get_application_args() {
+        return array(
+            'name' => array(
+                'type' => 'string',
+                'required' => true,
+                'sanitize_callback' => 'sanitize_text_field',
+            ),
+            'email' => array(
+                'type' => 'string',
+                'required' => true,
+                'format' => 'email',
+                'sanitize_callback' => 'sanitize_email',
+            ),
+            'phone' => array(
+                'type' => 'string',
+                'sanitize_callback' => 'sanitize_text_field',
+            ),
+            'message' => array(
+                'type' => 'string',
+                'sanitize_callback' => 'sanitize_textarea_field',
+            ),
+            'custom_fields' => array(
+                'type' => 'object',
+            ),
+        );
+    }
+
+    // =========================================================================
+    // VALIDATION CALLBACKS
+    // =========================================================================
+
+    /**
+     * Validate email format
+     *
+     * @param string $email Email address.
+     * @return bool
+     */
+    public function validate_email($email) {
+        return is_email($email);
+    }
+
+    /**
+     * Validate product exists
+     *
+     * @param int $product_id Product ID.
+     * @return bool
+     */
+    public function validate_product_exists($product_id) {
+        $plugin = \SemigApp\Plugin::get_instance();
+        $webshop = $plugin->get_module('webshop');
+        $product = $webshop->get_product(absint($product_id));
+        return !empty($product);
     }
 
     // =========================================================================
