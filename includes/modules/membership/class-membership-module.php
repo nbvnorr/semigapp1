@@ -321,12 +321,14 @@ class Membership_Module extends Base_Module {
     public function clear_levels_cache() {
         global $wpdb;
 
-        // Delete all level transients
-        $wpdb->query(
+        // Delete all level transients using prepared statements
+        $wpdb->query($wpdb->prepare(
             "DELETE FROM {$wpdb->options}
-             WHERE option_name LIKE '_transient_semigapp_levels_%'
-             OR option_name LIKE '_transient_timeout_semigapp_levels_%'"
-        );
+             WHERE option_name LIKE %s
+             OR option_name LIKE %s",
+            $wpdb->esc_like('_transient_semigapp_levels_') . '%',
+            $wpdb->esc_like('_transient_timeout_semigapp_levels_') . '%'
+        ));
     }
 
     /**
@@ -1033,7 +1035,22 @@ class Membership_Module extends Base_Module {
     public function handle_signup() {
         check_ajax_referer('semigapp_frontend', 'nonce');
 
-        $level_id = intval($_POST['level_id']);
+        // Rate limit: 3 signup attempts per hour per IP
+        $ip = isset($_SERVER['REMOTE_ADDR']) ? sanitize_text_field($_SERVER['REMOTE_ADDR']) : '';
+        $rate_key = 'semigapp_signup_rate_' . md5($ip);
+        $rate_count = get_transient($rate_key);
+
+        if ($rate_count !== false && $rate_count >= 3) {
+            wp_send_json_error(array('message' => __('Too many signup attempts. Please try again later.', 'semigapp')));
+        }
+
+        set_transient($rate_key, ($rate_count ?: 0) + 1, HOUR_IN_SECONDS);
+
+        $level_id = isset($_POST['level_id']) ? absint($_POST['level_id']) : 0;
+        if (!$level_id) {
+            wp_send_json_error(array('message' => __('Please select a membership level.', 'semigapp')));
+        }
+
         $level = $this->get_level($level_id);
 
         if (!$level) {
@@ -1044,8 +1061,27 @@ class Membership_Module extends Base_Module {
 
         // If not logged in, create account
         if (!$user_id) {
-            $email = sanitize_email($_POST['email']);
-            $password = isset($_POST['password']) ? $_POST['password'] : wp_generate_password();
+            $email = isset($_POST['email']) ? sanitize_email($_POST['email']) : '';
+
+            // Validate email
+            if (!is_email($email)) {
+                wp_send_json_error(array('message' => __('Please provide a valid email address.', 'semigapp')));
+            }
+
+            // Check if email already exists
+            if (email_exists($email)) {
+                wp_send_json_error(array('message' => __('An account with this email already exists. Please log in.', 'semigapp')));
+            }
+
+            // Generate or use provided password
+            $password = isset($_POST['password']) && !empty($_POST['password'])
+                ? $_POST['password']
+                : wp_generate_password(12, true, true);
+
+            // Validate password strength if provided
+            if (isset($_POST['password']) && strlen($_POST['password']) < 8) {
+                wp_send_json_error(array('message' => __('Password must be at least 8 characters long.', 'semigapp')));
+            }
 
             $user_id = wp_create_user($email, $password, $email);
 
@@ -1069,7 +1105,7 @@ class Membership_Module extends Base_Module {
                 $payment_id = $this->create_payment($member_id, array(
                     'amount' => $level->price,
                     'currency' => 'SEK',
-                    'payment_method' => sanitize_text_field($_POST['payment_method'] ?? ''),
+                    'payment_method' => isset($_POST['payment_method']) ? sanitize_text_field($_POST['payment_method']) : '',
                 ));
 
                 wp_send_json_success(array(

@@ -261,11 +261,19 @@ class Projects_Module extends Base_Module {
 
         $projects = $this->db->get_results('projects', $args);
 
-        // Add task counts
+        if (empty($projects)) {
+            return array();
+        }
+
+        // Batch load task counts to avoid N+1 query
+        $project_ids = wp_list_pluck($projects, 'id');
+        $task_counts = $this->get_task_counts_by_project($project_ids);
+
+        // Add task counts and calculate progress
         foreach ($projects as &$project) {
             $project->settings = json_decode($project->settings, true) ?: array();
-            $project->task_count = $this->db->count('tasks', array('project_id' => $project->id));
-            $project->completed_tasks = $this->db->count('tasks', array('project_id' => $project->id, 'status' => 'completed'));
+            $project->task_count = $task_counts[$project->id]['total'] ?? 0;
+            $project->completed_tasks = $task_counts[$project->id]['completed'] ?? 0;
 
             if ($project->task_count > 0) {
                 $project->progress = round(($project->completed_tasks / $project->task_count) * 100);
@@ -275,6 +283,42 @@ class Projects_Module extends Base_Module {
         }
 
         return $projects;
+    }
+
+    /**
+     * Get task counts grouped by project (fixes N+1 query)
+     *
+     * @param array $project_ids Array of project IDs.
+     * @return array Associative array of project_id => ['total' => count, 'completed' => count].
+     */
+    private function get_task_counts_by_project($project_ids) {
+        if (empty($project_ids)) {
+            return array();
+        }
+
+        global $wpdb;
+        $table = $this->db->get_table('tasks');
+        $placeholders = implode(',', array_fill(0, count($project_ids), '%d'));
+
+        $results = $wpdb->get_results($wpdb->prepare(
+            "SELECT project_id,
+                    COUNT(*) as total,
+                    SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed
+             FROM $table
+             WHERE project_id IN ($placeholders)
+             GROUP BY project_id",
+            $project_ids
+        ));
+
+        $counts = array();
+        foreach ($results as $row) {
+            $counts[$row->project_id] = array(
+                'total' => (int) $row->total,
+                'completed' => (int) $row->completed,
+            );
+        }
+
+        return $counts;
     }
 
     /**
@@ -782,6 +826,16 @@ class Projects_Module extends Base_Module {
     public function handle_ajax() {
         check_ajax_referer('semigapp_frontend', 'nonce');
 
+        // Require user to be logged in
+        if (!is_user_logged_in()) {
+            wp_send_json_error(array('message' => __('You must be logged in to perform this action.', 'semigapp')));
+        }
+
+        // Require edit capability for project operations
+        if (!current_user_can('edit_posts')) {
+            wp_send_json_error(array('message' => __('You do not have permission to perform this action.', 'semigapp')));
+        }
+
         $action = isset($_POST['project_action']) ? sanitize_text_field($_POST['project_action']) : '';
 
         switch ($action) {
@@ -789,10 +843,18 @@ class Projects_Module extends Base_Module {
                 $result = $this->create_project($_POST);
                 break;
             case 'update':
-                $result = $this->update_project(intval($_POST['project_id']), $_POST);
+                $project_id = isset($_POST['project_id']) ? absint($_POST['project_id']) : 0;
+                if (!$project_id || !$this->can_edit_project($project_id)) {
+                    wp_send_json_error(array('message' => __('You cannot edit this project.', 'semigapp')));
+                }
+                $result = $this->update_project($project_id, $_POST);
                 break;
             case 'delete':
-                $result = $this->delete_project(intval($_POST['project_id']));
+                $project_id = isset($_POST['project_id']) ? absint($_POST['project_id']) : 0;
+                if (!$project_id || !$this->can_edit_project($project_id)) {
+                    wp_send_json_error(array('message' => __('You cannot delete this project.', 'semigapp')));
+                }
+                $result = $this->delete_project($project_id);
                 break;
             default:
                 wp_send_json_error(array('message' => __('Invalid action', 'semigapp')));
@@ -811,26 +873,45 @@ class Projects_Module extends Base_Module {
     public function handle_task_ajax() {
         check_ajax_referer('semigapp_frontend', 'nonce');
 
+        // Require user to be logged in
+        if (!is_user_logged_in()) {
+            wp_send_json_error(array('message' => __('You must be logged in to perform this action.', 'semigapp')));
+        }
+
         $action = isset($_POST['task_action']) ? sanitize_text_field($_POST['task_action']) : '';
+        $task_id = isset($_POST['task_id']) ? absint($_POST['task_id']) : 0;
+
+        // For actions that modify tasks, check permissions
+        if (in_array($action, array('update', 'delete', 'update_status', 'add_comment', 'log_time'))) {
+            if (!$task_id || !$this->can_edit_task($task_id)) {
+                wp_send_json_error(array('message' => __('You cannot modify this task.', 'semigapp')));
+            }
+        }
 
         switch ($action) {
             case 'create':
+                if (!current_user_can('edit_posts')) {
+                    wp_send_json_error(array('message' => __('You do not have permission to create tasks.', 'semigapp')));
+                }
                 $result = $this->create_task($_POST);
                 break;
             case 'update':
-                $result = $this->update_task(intval($_POST['task_id']), $_POST);
+                $result = $this->update_task($task_id, $_POST);
                 break;
             case 'delete':
-                $result = $this->delete_task(intval($_POST['task_id']));
+                $result = $this->delete_task($task_id);
                 break;
             case 'update_status':
-                $result = $this->update_task(intval($_POST['task_id']), array('status' => sanitize_text_field($_POST['status'])));
+                $status = isset($_POST['status']) ? sanitize_text_field($_POST['status']) : '';
+                $result = $this->update_task($task_id, array('status' => $status));
                 break;
             case 'add_comment':
-                $result = $this->add_task_comment(intval($_POST['task_id']), $_POST['content']);
+                $content = isset($_POST['content']) ? sanitize_textarea_field($_POST['content']) : '';
+                $result = $this->add_task_comment($task_id, $content);
                 break;
             case 'log_time':
-                $result = $this->log_time(intval($_POST['task_id']), floatval($_POST['hours']));
+                $hours = isset($_POST['hours']) ? floatval($_POST['hours']) : 0;
+                $result = $this->log_time($task_id, $hours);
                 break;
             default:
                 wp_send_json_error(array('message' => __('Invalid action', 'semigapp')));
@@ -841,5 +922,49 @@ class Projects_Module extends Base_Module {
         } else {
             wp_send_json_error(array('message' => __('Operation failed', 'semigapp')));
         }
+    }
+
+    /**
+     * Check if current user can edit a project
+     *
+     * @param int $project_id Project ID.
+     * @return bool True if user can edit.
+     */
+    private function can_edit_project($project_id) {
+        if (current_user_can('manage_options')) {
+            return true;
+        }
+
+        $project = $this->get_project($project_id);
+        if (!$project) {
+            return false;
+        }
+
+        return $project->owner_id == get_current_user_id();
+    }
+
+    /**
+     * Check if current user can edit a task
+     *
+     * @param int $task_id Task ID.
+     * @return bool True if user can edit.
+     */
+    private function can_edit_task($task_id) {
+        if (current_user_can('manage_options')) {
+            return true;
+        }
+
+        $task = $this->get_task($task_id);
+        if (!$task) {
+            return false;
+        }
+
+        // Can edit if assigned to or is project owner
+        if ($task->assigned_to == get_current_user_id()) {
+            return true;
+        }
+
+        $project = $this->get_project($task->project_id);
+        return $project && $project->owner_id == get_current_user_id();
     }
 }

@@ -61,29 +61,85 @@ class Frontend {
      * Handle add to cart
      */
     private function handle_add_to_cart() {
-        $product_id = intval($_GET['add-to-cart']);
-        $quantity = isset($_GET['quantity']) ? intval($_GET['quantity']) : 1;
+        // Sanitize product ID
+        $product_id = isset($_GET['add-to-cart']) ? absint($_GET['add-to-cart']) : 0;
+
+        if (!$product_id) {
+            return;
+        }
+
+        // Validate quantity (1-99)
+        $quantity = isset($_GET['quantity']) ? absint($_GET['quantity']) : 1;
+        $quantity = max(1, min(99, $quantity));
 
         $plugin = \SemigApp\Plugin::get_instance();
         $webshop = $plugin->get_module('webshop');
 
+        // Verify product exists
+        $product = $webshop->get_product($product_id);
+        if (!$product) {
+            return;
+        }
+
         if ($webshop->add_to_cart($product_id, $quantity)) {
-            // Redirect to cart or back to product
-            if (isset($_GET['redirect'])) {
-                wp_redirect(esc_url($_GET['redirect']));
-            } else {
-                wp_redirect($this->settings->get_page_url('cart'));
+            // Validate redirect URL - only allow same-site redirects
+            if (isset($_GET['redirect']) && !empty($_GET['redirect'])) {
+                $redirect_url = esc_url_raw($_GET['redirect']);
+
+                // Only allow redirects to the same site
+                if ($this->is_safe_redirect($redirect_url)) {
+                    wp_safe_redirect($redirect_url);
+                    exit;
+                }
             }
+
+            // Default redirect to cart
+            wp_safe_redirect($this->settings->get_page_url('cart'));
             exit;
         }
+    }
+
+    /**
+     * Check if redirect URL is safe (same site)
+     *
+     * @param string $url URL to check.
+     * @return bool True if safe.
+     */
+    private function is_safe_redirect($url) {
+        if (empty($url)) {
+            return false;
+        }
+
+        $site_url = home_url();
+        $site_host = wp_parse_url($site_url, PHP_URL_HOST);
+        $redirect_host = wp_parse_url($url, PHP_URL_HOST);
+
+        // Allow relative URLs
+        if (empty($redirect_host)) {
+            return true;
+        }
+
+        // Check if redirect host matches site host
+        return $redirect_host === $site_host;
     }
 
     /**
      * Handle payment return
      */
     private function handle_payment_return() {
-        $order_id = intval($_GET['order_id']);
-        $status = sanitize_text_field($_GET['payment_status']);
+        // Sanitize and validate inputs
+        $order_id = isset($_GET['order_id']) ? absint($_GET['order_id']) : 0;
+        $status = isset($_GET['payment_status']) ? sanitize_text_field($_GET['payment_status']) : '';
+
+        if (!$order_id || empty($status)) {
+            return;
+        }
+
+        // Validate status is one of expected values
+        $valid_statuses = array('success', 'cancelled', 'failed', 'pending');
+        if (!in_array($status, $valid_statuses, true)) {
+            return;
+        }
 
         $plugin = \SemigApp\Plugin::get_instance();
         $webshop = $plugin->get_module('webshop');
@@ -94,6 +150,13 @@ class Frontend {
             return;
         }
 
+        // Verify order belongs to current user (if logged in) or session
+        if (is_user_logged_in()) {
+            if ($order->user_id && $order->user_id !== get_current_user_id()) {
+                return;
+            }
+        }
+
         // Handle based on payment status
         if ($status === 'success' && $order->payment_status !== 'completed') {
             // Verify with payment gateway
@@ -101,6 +164,7 @@ class Frontend {
 
             if ($gateway) {
                 // Gateway-specific verification would happen here
+                $gateway->verify_payment($order);
             }
         }
     }

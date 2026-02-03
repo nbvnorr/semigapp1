@@ -244,12 +244,14 @@ class Webshop_Module extends Base_Module {
     public function cleanup_expired_carts() {
         global $wpdb;
 
-        // Delete expired transients with our prefix
-        $wpdb->query(
+        // Delete expired transients with our prefix using prepared statement
+        $wpdb->query($wpdb->prepare(
             "DELETE FROM {$wpdb->options}
-             WHERE option_name LIKE '_transient_semigapp_cart_%'
-             AND option_name NOT LIKE '_transient_timeout_%'"
-        );
+             WHERE option_name LIKE %s
+             AND option_name NOT LIKE %s",
+            $wpdb->esc_like('_transient_semigapp_cart_') . '%',
+            $wpdb->esc_like('_transient_timeout_') . '%'
+        ));
     }
 
     /**
@@ -555,11 +557,14 @@ class Webshop_Module extends Base_Module {
     public function clear_products_cache() {
         global $wpdb;
 
-        $wpdb->query(
+        // Use prepared statements for LIKE queries
+        $wpdb->query($wpdb->prepare(
             "DELETE FROM {$wpdb->options}
-             WHERE option_name LIKE '_transient_semigapp_products_%'
-             OR option_name LIKE '_transient_timeout_semigapp_products_%'"
-        );
+             WHERE option_name LIKE %s
+             OR option_name LIKE %s",
+            $wpdb->esc_like('_transient_semigapp_products_') . '%',
+            $wpdb->esc_like('_transient_timeout_semigapp_products_') . '%'
+        ));
     }
 
     /**

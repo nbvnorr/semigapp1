@@ -314,6 +314,10 @@ class Events_Module extends Base_Module {
 
         $events = $this->db->get_results('events', $args);
 
+        if (empty($events)) {
+            return array();
+        }
+
         // Filter by date range if specified
         if (!empty($args['from_date']) || !empty($args['to_date'])) {
             $events = array_filter($events, function($event) use ($args) {
@@ -325,17 +329,51 @@ class Events_Module extends Base_Module {
                 }
                 return true;
             });
+            $events = array_values($events); // Re-index array
         }
+
+        // Batch load registration counts to avoid N+1 query
+        $event_ids = wp_list_pluck($events, 'id');
+        $registration_counts = $this->get_registration_counts_by_event($event_ids);
 
         foreach ($events as &$event) {
             $event->settings = json_decode($event->settings, true) ?: array();
-            $event->registration_count = $this->db->count('event_registrations', array(
-                'event_id' => $event->id,
-                'status' => 'confirmed',
-            ));
+            $event->registration_count = $registration_counts[$event->id] ?? 0;
         }
 
         return $events;
+    }
+
+    /**
+     * Get registration counts grouped by event (fixes N+1 query)
+     *
+     * @param array $event_ids Array of event IDs.
+     * @return array Associative array of event_id => count.
+     */
+    private function get_registration_counts_by_event($event_ids) {
+        if (empty($event_ids)) {
+            return array();
+        }
+
+        global $wpdb;
+        $table = $this->db->get_table('event_registrations');
+        $placeholders = implode(',', array_fill(0, count($event_ids), '%d'));
+
+        $results = $wpdb->get_results($wpdb->prepare(
+            "SELECT event_id, COUNT(*) as count
+             FROM $table
+             WHERE event_id IN ($placeholders)
+             AND status = 'confirmed'
+             GROUP BY event_id",
+            $event_ids
+        ));
+
+        $counts = array();
+        foreach ($results as $row) {
+            $counts[$row->event_id] = (int) $row->count;
+        }
+
+        return $counts;
     }
 
     /**
@@ -864,14 +902,24 @@ class Events_Module extends Base_Module {
 
         switch ($action) {
             case 'get_calendar':
-                $year = intval($_POST['year']);
-                $month = intval($_POST['month']);
+                $year = isset($_POST['year']) ? absint($_POST['year']) : 0;
+                $month = isset($_POST['month']) ? absint($_POST['month']) : 0;
+                if ($year < 2000 || $year > 2100 || $month < 1 || $month > 12) {
+                    wp_send_json_error(array('message' => __('Invalid date parameters.', 'semigapp')));
+                }
                 $events = $this->get_calendar_events($year, $month);
                 wp_send_json_success(array('events' => $events));
                 break;
 
             case 'get_event':
-                $event = $this->get_event(intval($_POST['event_id']));
+                $event_id = isset($_POST['event_id']) ? absint($_POST['event_id']) : 0;
+                if (!$event_id) {
+                    wp_send_json_error(array('message' => __('Invalid event ID.', 'semigapp')));
+                }
+                $event = $this->get_event($event_id);
+                if (!$event) {
+                    wp_send_json_error(array('message' => __('Event not found.', 'semigapp')));
+                }
                 wp_send_json_success(array('event' => $event));
                 break;
 
@@ -886,7 +934,34 @@ class Events_Module extends Base_Module {
     public function handle_registration() {
         check_ajax_referer('semigapp_frontend', 'nonce');
 
-        $event_id = intval($_POST['event_id']);
+        // Rate limit: 5 registrations per hour per IP
+        $ip = isset($_SERVER['REMOTE_ADDR']) ? sanitize_text_field($_SERVER['REMOTE_ADDR']) : '';
+        $rate_key = 'semigapp_reg_rate_' . md5($ip);
+        $rate_count = get_transient($rate_key);
+
+        if ($rate_count !== false && $rate_count >= 5) {
+            wp_send_json_error(array('message' => __('Too many registration attempts. Please try again later.', 'semigapp')));
+        }
+
+        set_transient($rate_key, ($rate_count ?: 0) + 1, HOUR_IN_SECONDS);
+
+        $event_id = isset($_POST['event_id']) ? absint($_POST['event_id']) : 0;
+
+        if (!$event_id) {
+            wp_send_json_error(array('message' => __('Invalid event ID.', 'semigapp')));
+        }
+
+        // Validate required fields
+        $email = isset($_POST['email']) ? sanitize_email($_POST['email']) : '';
+        if (!is_email($email)) {
+            wp_send_json_error(array('message' => __('Please provide a valid email address.', 'semigapp')));
+        }
+
+        $name = isset($_POST['name']) ? sanitize_text_field($_POST['name']) : '';
+        if (empty($name)) {
+            wp_send_json_error(array('message' => __('Please provide your name.', 'semigapp')));
+        }
+
         $result = $this->register($event_id, $_POST);
 
         if ($result) {
