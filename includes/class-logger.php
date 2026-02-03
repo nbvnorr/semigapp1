@@ -76,34 +76,47 @@ class Logger {
      * Constructor
      */
     private function __construct() {
-        $upload_dir = wp_upload_dir();
-        $this->log_dir = $upload_dir['basedir'] . '/semigapp-logs/';
+        // Defer log directory creation until first use to avoid issues during activation
+        $this->log_dir = '';
 
-        // Create log directory if it doesn't exist
-        if (!file_exists($this->log_dir)) {
-            wp_mkdir_p($this->log_dir);
-
-            // Add .htaccess to protect log files
-            $htaccess = $this->log_dir . '.htaccess';
-            if (!file_exists($htaccess)) {
-                file_put_contents($htaccess, 'deny from all');
-            }
-
-            // Add index.php for additional protection
-            $index = $this->log_dir . 'index.php';
-            if (!file_exists($index)) {
-                file_put_contents($index, '<?php // Silence is golden');
-            }
-        }
-
-        // Set enabled based on settings
-        $settings = Settings::get_instance();
-        $this->enabled = (bool) $settings->get('general.enable_logging', true);
+        // Set enabled based on settings - use get_option directly to avoid circular dependency
+        $general_settings = get_option('semigapp_general_settings', array());
+        $this->enabled = isset($general_settings['enable_logging']) ? (bool) $general_settings['enable_logging'] : true;
 
         // Set minimum level based on WP_DEBUG
         if (defined('WP_DEBUG') && WP_DEBUG) {
             $this->min_level = self::LEVEL_DEBUG;
         }
+    }
+
+    /**
+     * Get log directory, creating if needed
+     *
+     * @return string Log directory path.
+     */
+    private function get_log_dir() {
+        if (empty($this->log_dir)) {
+            $upload_dir = wp_upload_dir();
+            $this->log_dir = $upload_dir['basedir'] . '/semigapp-logs/';
+
+            // Create log directory if it doesn't exist
+            if (!file_exists($this->log_dir)) {
+                wp_mkdir_p($this->log_dir);
+
+                // Add .htaccess to protect log files
+                $htaccess = $this->log_dir . '.htaccess';
+                if (!file_exists($htaccess)) {
+                    @file_put_contents($htaccess, 'deny from all');
+                }
+
+                // Add index.php for additional protection
+                $index = $this->log_dir . 'index.php';
+                if (!file_exists($index)) {
+                    @file_put_contents($index, '<?php // Silence is golden');
+                }
+            }
+        }
+        return $this->log_dir;
     }
 
     /**
@@ -286,7 +299,7 @@ class Logger {
      */
     private function get_log_filename($channel) {
         $date = current_time('Y-m-d');
-        return $this->log_dir . sanitize_file_name("semigapp-{$channel}-{$date}.log");
+        return $this->get_log_dir() . sanitize_file_name("semigapp-{$channel}-{$date}.log");
     }
 
     /**
@@ -357,11 +370,12 @@ class Logger {
     public function get_log_files($days = 7) {
         $files = array();
 
-        if (!is_dir($this->log_dir)) {
+        $log_dir = $this->get_log_dir();
+        if (!is_dir($log_dir)) {
             return $files;
         }
 
-        $log_files = glob($this->log_dir . '*.log');
+        $log_files = glob($log_dir . '*.log');
 
         foreach ($log_files as $file) {
             $filename = basename($file);
@@ -396,7 +410,7 @@ class Logger {
      * @return string Log contents.
      */
     public function read_log($filename, $lines = 100) {
-        $filepath = $this->log_dir . sanitize_file_name($filename);
+        $filepath = $this->get_log_dir() . sanitize_file_name($filename);
 
         if (!file_exists($filepath)) {
             return '';
@@ -428,11 +442,12 @@ class Logger {
     public function clear_old_logs($days = 30) {
         $deleted = 0;
 
-        if (!is_dir($this->log_dir)) {
+        $log_dir = $this->get_log_dir();
+        if (!is_dir($log_dir)) {
             return $deleted;
         }
 
-        $log_files = glob($this->log_dir . '*.log');
+        $log_files = glob($log_dir . '*.log');
         $cutoff = time() - ($days * DAY_IN_SECONDS);
 
         foreach ($log_files as $file) {

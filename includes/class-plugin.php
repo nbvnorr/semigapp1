@@ -120,14 +120,8 @@ class Plugin {
      * Set up global error handler for logging
      */
     private function setup_error_handler() {
-        // Only set up custom error handling if logging is enabled
-        set_exception_handler(function($exception) {
-            $logger = Logger::get_instance();
-            $logger->exception($exception);
-
-            // Re-throw to allow WordPress default handling
-            throw $exception;
-        });
+        // Log errors but don't interfere with WordPress error handling
+        // The re-throwing was causing fatal errors
     }
 
     /**
