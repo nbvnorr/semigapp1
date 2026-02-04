@@ -49,14 +49,15 @@ class Emails {
      * Constructor
      */
     private function __construct() {
-        $this->register_templates();
+        // Defer template registration to init action to avoid early textdomain loading
+        add_action('init', array($this, 'register_templates'), 5);
         add_filter('wp_mail_content_type', array($this, 'set_html_content_type'));
     }
 
     /**
      * Register email templates
      */
-    private function register_templates() {
+    public function register_templates() {
         $this->templates = array(
             // Membership emails
             'membership_welcome' => array(

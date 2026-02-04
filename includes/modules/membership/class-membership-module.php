@@ -46,7 +46,8 @@ class Membership_Module extends Base_Module {
      * Initialize the module
      */
     public function init() {
-        $this->setup_statuses();
+        // Defer status setup to init action to avoid early textdomain loading
+        add_action('init', array($this, 'setup_statuses'), 5);
 
         // Register hooks
         add_action('semigapp_register_shortcodes', array($this, 'register_shortcodes'));
@@ -68,7 +69,7 @@ class Membership_Module extends Base_Module {
     /**
      * Setup member statuses
      */
-    private function setup_statuses() {
+    public function setup_statuses() {
         $this->statuses = array(
             'active' => __('Active', 'semigapp'),
             'pending' => __('Pending', 'semigapp'),

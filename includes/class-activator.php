@@ -534,9 +534,9 @@ class Activator {
                 'application_notification_email' => get_option('admin_email'),
                 'auto_approve_applications' => false,
                 'waitlist_enabled' => true,
-                'application_confirmation_text' => __('Thank you for your application. We will review it and get back to you soon.', 'semigapp'),
-                'application_approved_text' => __('Your application has been approved! We look forward to seeing you at the event.', 'semigapp'),
-                'application_rejected_text' => __('Unfortunately, your application was not approved for this event.', 'semigapp'),
+                'application_confirmation_text' => 'Thank you for your application. We will review it and get back to you soon.',
+                'application_approved_text' => 'Your application has been approved! We look forward to seeing you at the event.',
+                'application_rejected_text' => 'Unfortunately, your application was not approved for this event.',
             ),
             // Membership settings
             'membership' => array(
@@ -596,39 +596,40 @@ class Activator {
 
     /**
      * Create required pages
+     * Note: Using plain strings here to avoid early textdomain loading
      */
     private static function create_pages() {
         $pages = array(
             'account' => array(
-                'title' => __('My Account', 'semigapp'),
+                'title' => 'My Account',
                 'content' => '[semigapp_account]',
             ),
             'checkout' => array(
-                'title' => __('Checkout', 'semigapp'),
+                'title' => 'Checkout',
                 'content' => '[semigapp_checkout]',
             ),
             'cart' => array(
-                'title' => __('Cart', 'semigapp'),
+                'title' => 'Cart',
                 'content' => '[semigapp_cart]',
             ),
             'shop' => array(
-                'title' => __('Shop', 'semigapp'),
+                'title' => 'Shop',
                 'content' => '[semigapp_shop]',
             ),
             'events' => array(
-                'title' => __('Events', 'semigapp'),
+                'title' => 'Events',
                 'content' => '[semigapp_events]',
             ),
             'membership' => array(
-                'title' => __('Membership', 'semigapp'),
+                'title' => 'Membership',
                 'content' => '[semigapp_membership_levels]',
             ),
             'newsletter_subscribe' => array(
-                'title' => __('Subscribe to Newsletter', 'semigapp'),
+                'title' => 'Subscribe to Newsletter',
                 'content' => '[semigapp_newsletter_form]',
             ),
             'newsletter_unsubscribe' => array(
-                'title' => __('Unsubscribe', 'semigapp'),
+                'title' => 'Unsubscribe',
                 'content' => '[semigapp_unsubscribe]',
             ),
         );
@@ -690,7 +691,8 @@ class Activator {
         }
 
         // Create SemigApp Manager role
-        add_role('semigapp_manager', __('SemigApp Manager', 'semigapp'), array(
+        // Note: Using plain strings to avoid early textdomain loading
+        add_role('semigapp_manager', 'SemigApp Manager', array(
             'read' => true,
             'manage_semigapp_projects' => true,
             'edit_semigapp_projects' => true,
@@ -706,7 +708,7 @@ class Activator {
         ));
 
         // Create Member role
-        add_role('semigapp_member', __('SemigApp Member', 'semigapp'), array(
+        add_role('semigapp_member', 'SemigApp Member', array(
             'read' => true,
         ));
     }

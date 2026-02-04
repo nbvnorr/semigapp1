@@ -67,7 +67,8 @@ class Webshop_Module extends Base_Module {
      * Initialize the module
      */
     public function init() {
-        $this->setup_statuses();
+        // Defer status setup to init action to avoid early textdomain loading
+        add_action('init', array($this, 'setup_statuses'), 5);
         $this->init_gateways();
         $this->init_cart();
 
@@ -96,7 +97,7 @@ class Webshop_Module extends Base_Module {
     /**
      * Setup order statuses
      */
-    private function setup_statuses() {
+    public function setup_statuses() {
         $this->order_statuses = array(
             'pending' => __('Pending', 'semigapp'),
             'processing' => __('Processing', 'semigapp'),
