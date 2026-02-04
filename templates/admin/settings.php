@@ -301,8 +301,198 @@ $settings = \SemigApp\Settings::get_instance();
                     </div>
                 </div>
 
-            <?php else : ?>
-                <p><?php esc_html_e('Settings for this section.', 'semigapp'); ?></p>
+            <?php elseif ($tab === 'projects') : ?>
+                <div class="semigapp-settings-section">
+                    <h3><?php esc_html_e('Project Settings', 'semigapp'); ?></h3>
+
+                    <div class="semigapp-form-row">
+                        <label>
+                            <input type="checkbox" name="semigapp_projects_settings[enable_time_tracking]" value="1"
+                                   <?php checked($settings->get('projects.enable_time_tracking', true)); ?>>
+                            <?php esc_html_e('Enable Time Tracking', 'semigapp'); ?>
+                        </label>
+                        <p class="description"><?php esc_html_e('Allow users to log time spent on tasks.', 'semigapp'); ?></p>
+                    </div>
+
+                    <div class="semigapp-form-row">
+                        <label for="default_task_status"><?php esc_html_e('Default Task Status', 'semigapp'); ?></label>
+                        <select name="semigapp_projects_settings[default_task_status]" id="default_task_status">
+                            <option value="pending" <?php selected($settings->get('projects.default_task_status'), 'pending'); ?>><?php esc_html_e('Pending', 'semigapp'); ?></option>
+                            <option value="in_progress" <?php selected($settings->get('projects.default_task_status'), 'in_progress'); ?>><?php esc_html_e('In Progress', 'semigapp'); ?></option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="semigapp-settings-section">
+                    <h3><?php esc_html_e('Task Priorities', 'semigapp'); ?></h3>
+                    <p class="description"><?php esc_html_e('Available priority levels for tasks (comma-separated).', 'semigapp'); ?></p>
+
+                    <div class="semigapp-form-row">
+                        <label for="priorities"><?php esc_html_e('Priorities', 'semigapp'); ?></label>
+                        <input type="text" name="semigapp_projects_settings[priorities_text]" id="priorities"
+                               value="<?php echo esc_attr(implode(', ', $settings->get('projects.priorities', array('low', 'medium', 'high', 'urgent')))); ?>" class="regular-text">
+                    </div>
+                </div>
+
+            <?php elseif ($tab === 'membership') : ?>
+                <div class="semigapp-settings-section">
+                    <h3><?php esc_html_e('Membership Settings', 'semigapp'); ?></h3>
+
+                    <div class="semigapp-form-row">
+                        <label>
+                            <input type="checkbox" name="semigapp_membership_settings[enable_trial]" value="1"
+                                   <?php checked($settings->get('membership.enable_trial', false)); ?>>
+                            <?php esc_html_e('Enable Trial Periods', 'semigapp'); ?>
+                        </label>
+                        <p class="description"><?php esc_html_e('Allow membership levels to have trial periods.', 'semigapp'); ?></p>
+                    </div>
+
+                    <div class="semigapp-form-row">
+                        <label for="grace_period_days"><?php esc_html_e('Grace Period (Days)', 'semigapp'); ?></label>
+                        <input type="number" name="semigapp_membership_settings[grace_period_days]" id="grace_period_days"
+                               value="<?php echo esc_attr($settings->get('membership.grace_period_days', 7)); ?>" min="0" max="30">
+                        <p class="description"><?php esc_html_e('Number of days after expiration before access is revoked.', 'semigapp'); ?></p>
+                    </div>
+
+                    <div class="semigapp-form-row">
+                        <label>
+                            <input type="checkbox" name="semigapp_membership_settings[restrict_content]" value="1"
+                                   <?php checked($settings->get('membership.restrict_content', true)); ?>>
+                            <?php esc_html_e('Enable Content Restriction', 'semigapp'); ?>
+                        </label>
+                        <p class="description"><?php esc_html_e('Allow restricting content to specific membership levels.', 'semigapp'); ?></p>
+                    </div>
+                </div>
+
+                <div class="semigapp-settings-section">
+                    <h3><?php esc_html_e('Expiry Notifications', 'semigapp'); ?></h3>
+
+                    <div class="semigapp-form-row">
+                        <label for="expiry_reminder_days"><?php esc_html_e('Reminder Days Before Expiry', 'semigapp'); ?></label>
+                        <input type="text" name="semigapp_membership_settings[expiry_reminder_days_text]" id="expiry_reminder_days"
+                               value="<?php echo esc_attr(implode(', ', $settings->get('membership.expiry_reminder_days', array(7, 3, 1)))); ?>">
+                        <p class="description"><?php esc_html_e('Send reminders this many days before expiry (comma-separated, e.g., 7, 3, 1).', 'semigapp'); ?></p>
+                    </div>
+                </div>
+
+            <?php elseif ($tab === 'webshop') : ?>
+                <div class="semigapp-settings-section">
+                    <h3><?php esc_html_e('Shop Settings', 'semigapp'); ?></h3>
+
+                    <div class="semigapp-form-row">
+                        <label for="order_number_prefix"><?php esc_html_e('Order Number Prefix', 'semigapp'); ?></label>
+                        <input type="text" name="semigapp_webshop_settings[order_number_prefix]" id="order_number_prefix"
+                               value="<?php echo esc_attr($settings->get('webshop.order_number_prefix', 'ORD-')); ?>">
+                    </div>
+
+                    <div class="semigapp-form-row">
+                        <label for="low_stock_threshold"><?php esc_html_e('Low Stock Threshold', 'semigapp'); ?></label>
+                        <input type="number" name="semigapp_webshop_settings[low_stock_threshold]" id="low_stock_threshold"
+                               value="<?php echo esc_attr($settings->get('webshop.low_stock_threshold', 5)); ?>" min="0">
+                        <p class="description"><?php esc_html_e('Products with stock at or below this level will be marked as low stock.', 'semigapp'); ?></p>
+                    </div>
+                </div>
+
+                <div class="semigapp-settings-section">
+                    <h3><?php esc_html_e('Tax Settings', 'semigapp'); ?></h3>
+
+                    <div class="semigapp-form-row">
+                        <label>
+                            <input type="checkbox" name="semigapp_webshop_settings[enable_tax]" value="1"
+                                   <?php checked($settings->get('webshop.enable_tax', true)); ?>>
+                            <?php esc_html_e('Enable Tax', 'semigapp'); ?>
+                        </label>
+                    </div>
+
+                    <div class="semigapp-form-row">
+                        <label for="tax_rate"><?php esc_html_e('Default Tax Rate (%)', 'semigapp'); ?></label>
+                        <input type="number" name="semigapp_webshop_settings[tax_rate]" id="tax_rate"
+                               value="<?php echo esc_attr($settings->get('webshop.tax_rate', 25)); ?>" min="0" max="100" step="0.01">
+                    </div>
+
+                    <div class="semigapp-form-row">
+                        <label for="tax_display"><?php esc_html_e('Display Prices', 'semigapp'); ?></label>
+                        <select name="semigapp_webshop_settings[tax_display]" id="tax_display">
+                            <option value="incl" <?php selected($settings->get('webshop.tax_display'), 'incl'); ?>><?php esc_html_e('Including Tax', 'semigapp'); ?></option>
+                            <option value="excl" <?php selected($settings->get('webshop.tax_display'), 'excl'); ?>><?php esc_html_e('Excluding Tax', 'semigapp'); ?></option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="semigapp-settings-section">
+                    <h3><?php esc_html_e('Shipping Settings', 'semigapp'); ?></h3>
+
+                    <div class="semigapp-form-row">
+                        <label>
+                            <input type="checkbox" name="semigapp_webshop_settings[enable_shipping]" value="1"
+                                   <?php checked($settings->get('webshop.enable_shipping', true)); ?>>
+                            <?php esc_html_e('Enable Shipping', 'semigapp'); ?>
+                        </label>
+                    </div>
+
+                    <div class="semigapp-form-row">
+                        <label for="free_shipping_threshold"><?php esc_html_e('Free Shipping Threshold', 'semigapp'); ?></label>
+                        <input type="number" name="semigapp_webshop_settings[free_shipping_threshold]" id="free_shipping_threshold"
+                               value="<?php echo esc_attr($settings->get('webshop.free_shipping_threshold', 500)); ?>" min="0">
+                        <p class="description"><?php esc_html_e('Orders above this amount qualify for free shipping. Set to 0 to disable.', 'semigapp'); ?></p>
+                    </div>
+                </div>
+
+            <?php elseif ($tab === 'emails') : ?>
+                <div class="semigapp-settings-section">
+                    <h3><?php esc_html_e('Email Template Settings', 'semigapp'); ?></h3>
+
+                    <div class="semigapp-form-row">
+                        <label for="header_logo"><?php esc_html_e('Header Logo URL', 'semigapp'); ?></label>
+                        <input type="url" name="semigapp_emails_settings[header_logo]" id="header_logo"
+                               value="<?php echo esc_attr($settings->get('emails.header_logo')); ?>" class="regular-text">
+                        <p class="description"><?php esc_html_e('URL to your logo image for email headers.', 'semigapp'); ?></p>
+                    </div>
+
+                    <div class="semigapp-form-row">
+                        <label for="header_color"><?php esc_html_e('Header Background Color', 'semigapp'); ?></label>
+                        <input type="color" name="semigapp_emails_settings[header_color]" id="header_color"
+                               value="<?php echo esc_attr($settings->get('emails.header_color', '#2563eb')); ?>">
+                    </div>
+
+                    <div class="semigapp-form-row">
+                        <label for="footer_text"><?php esc_html_e('Email Footer Text', 'semigapp'); ?></label>
+                        <textarea name="semigapp_emails_settings[footer_text]" id="footer_text" rows="3" class="large-text"><?php echo esc_textarea($settings->get('emails.footer_text')); ?></textarea>
+                        <p class="description"><?php esc_html_e('Text shown at the bottom of all emails.', 'semigapp'); ?></p>
+                    </div>
+                </div>
+
+                <div class="semigapp-settings-section">
+                    <h3><?php esc_html_e('Email Notifications', 'semigapp'); ?></h3>
+
+                    <div class="semigapp-form-row">
+                        <label>
+                            <input type="checkbox" name="semigapp_emails_settings[notify_admin_new_order]" value="1"
+                                   <?php checked($settings->get('emails.notify_admin_new_order', true)); ?>>
+                            <?php esc_html_e('New Order Notification', 'semigapp'); ?>
+                        </label>
+                        <p class="description"><?php esc_html_e('Send email to admin when a new order is placed.', 'semigapp'); ?></p>
+                    </div>
+
+                    <div class="semigapp-form-row">
+                        <label>
+                            <input type="checkbox" name="semigapp_emails_settings[notify_admin_new_member]" value="1"
+                                   <?php checked($settings->get('emails.notify_admin_new_member', true)); ?>>
+                            <?php esc_html_e('New Member Notification', 'semigapp'); ?>
+                        </label>
+                        <p class="description"><?php esc_html_e('Send email to admin when a new member signs up.', 'semigapp'); ?></p>
+                    </div>
+
+                    <div class="semigapp-form-row">
+                        <label>
+                            <input type="checkbox" name="semigapp_emails_settings[notify_admin_new_registration]" value="1"
+                                   <?php checked($settings->get('emails.notify_admin_new_registration', true)); ?>>
+                            <?php esc_html_e('New Event Registration Notification', 'semigapp'); ?>
+                        </label>
+                        <p class="description"><?php esc_html_e('Send email to admin when someone registers for an event.', 'semigapp'); ?></p>
+                    </div>
+                </div>
+
             <?php endif; ?>
 
             <?php submit_button(); ?>
