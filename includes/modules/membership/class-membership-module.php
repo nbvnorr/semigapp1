@@ -731,10 +731,13 @@ class Membership_Module extends Base_Module {
                 }
             }
 
-            $this->send_notification('payment_received', get_userdata($member->user_id)->user_email, array(
-                'first_name' => get_userdata($member->user_id)->first_name,
-                'amount' => $this->settings->format_price($payment->amount, $payment->currency),
-            ));
+            $user = get_userdata($member->user_id);
+            if ($user) {
+                $this->send_notification('payment_received', $user->user_email, array(
+                    'first_name' => $user->first_name,
+                    'amount' => $this->settings->format_price($payment->amount, $payment->currency),
+                ));
+            }
 
             do_action('semigapp_membership_payment_completed', $payment_id);
         }
@@ -1073,14 +1076,15 @@ class Membership_Module extends Base_Module {
                 wp_send_json_error(array('message' => __('An account with this email already exists. Please log in.', 'semigapp')));
             }
 
-            // Generate or use provided password
-            $password = isset($_POST['password']) && !empty($_POST['password'])
-                ? $_POST['password']
-                : wp_generate_password(12, true, true);
-
-            // Validate password strength if provided
-            if (isset($_POST['password']) && strlen($_POST['password']) < 8) {
-                wp_send_json_error(array('message' => __('Password must be at least 8 characters long.', 'semigapp')));
+            // Validate password strength BEFORE using it
+            if (isset($_POST['password']) && !empty($_POST['password'])) {
+                $password = $_POST['password'];
+                if (strlen($password) < 8) {
+                    wp_send_json_error(array('message' => __('Password must be at least 8 characters long.', 'semigapp')));
+                }
+            } else {
+                // Auto-generate a secure password
+                $password = wp_generate_password(12, true, true);
             }
 
             $user_id = wp_create_user($email, $password, $email);

@@ -211,7 +211,8 @@ class Emails {
 
         if (file_exists($template_file)) {
             ob_start();
-            extract($data);
+            // Pass data as $email_data to avoid extract() security issues
+            $email_data = $data;
             include $template_file;
             $body = ob_get_clean();
         } else {

@@ -929,7 +929,8 @@ class Newsletter_Module extends Base_Module {
      * @return string URL.
      */
     private function get_unsubscribe_url($subscriber) {
-        $token = wp_hash($subscriber->email . $subscriber->id);
+        // Use HMAC with site secret for secure token generation
+        $token = hash_hmac('sha256', $subscriber->email . '|' . $subscriber->id, wp_salt('auth'));
 
         return add_query_arg(array(
             'semigapp_action' => 'unsubscribe',
@@ -1044,7 +1045,8 @@ class Newsletter_Module extends Base_Module {
         $subscriber = $this->get_subscriber_by_email($email);
 
         if ($subscriber) {
-            $expected_token = wp_hash($subscriber->email . $subscriber->id);
+            // Use HMAC for secure token verification (matches get_unsubscribe_url)
+            $expected_token = hash_hmac('sha256', $subscriber->email . '|' . $subscriber->id, wp_salt('auth'));
 
             if (hash_equals($expected_token, $token)) {
                 $this->unsubscribe($subscriber->id, 'Clicked unsubscribe link');

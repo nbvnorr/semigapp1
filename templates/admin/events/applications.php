@@ -176,7 +176,7 @@ $statuses = $events_module->get_application_statuses();
 
             <?php if (!empty($pagination)) : ?>
                 <div class="semigapp-pagination">
-                    <?php echo $pagination; ?>
+                    <?php echo wp_kses_post($pagination); ?>
                 </div>
             <?php endif; ?>
         <?php endif; ?>

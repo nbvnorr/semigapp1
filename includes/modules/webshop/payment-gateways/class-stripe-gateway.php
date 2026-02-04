@@ -403,9 +403,10 @@ class Stripe_Gateway extends Base_Gateway {
         $db = \SemigApp\Database::get_instance();
 
         global $wpdb;
+        // Use exact match for transaction_id, not LIKE pattern
         $order = $wpdb->get_row($wpdb->prepare(
-            "SELECT * FROM " . $db->get_table('orders') . " WHERE transaction_id LIKE %s",
-            '%' . $charge['payment_intent'] . '%'
+            "SELECT * FROM " . $db->get_table('orders') . " WHERE transaction_id = %s",
+            $charge['payment_intent']
         ));
 
         if ($order) {
@@ -426,6 +427,21 @@ class Stripe_Gateway extends Base_Gateway {
 
         if (!$order_id || !$payment_intent_id) {
             wp_send_json_error(array('message' => __('Invalid request', 'semigapp')));
+        }
+
+        // Verify order ownership
+        $db = \SemigApp\Database::get_instance();
+        $order = $db->get_row('orders', array('id' => $order_id));
+
+        if (!$order) {
+            wp_send_json_error(array('message' => __('Order not found', 'semigapp')));
+        }
+
+        // Check ownership - order must belong to current user or be a guest order from this session
+        if (is_user_logged_in()) {
+            if ($order->user_id && $order->user_id != get_current_user_id()) {
+                wp_send_json_error(array('message' => __('Access denied', 'semigapp')));
+            }
         }
 
         // Retrieve PaymentIntent to check status

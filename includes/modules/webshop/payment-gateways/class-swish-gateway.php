@@ -235,18 +235,17 @@ class Swish_Gateway extends Base_Gateway {
      * @return string UUID format request ID.
      */
     private function generate_request_id() {
-        // Swish requires a specific UUID format
-        return strtoupper(sprintf(
-            '%04x%04x%04x%04x%04x%04x%04x%04x',
-            mt_rand(0, 0xffff),
-            mt_rand(0, 0xffff),
-            mt_rand(0, 0xffff),
-            mt_rand(0, 0x0fff) | 0x4000,
-            mt_rand(0, 0x3fff) | 0x8000,
-            mt_rand(0, 0xffff),
-            mt_rand(0, 0xffff),
-            mt_rand(0, 0xffff)
-        ));
+        // Swish requires a specific UUID format - use cryptographically secure random
+        if (function_exists('random_bytes')) {
+            $bytes = random_bytes(16);
+            // Set version to 4 (random) and variant bits
+            $bytes[6] = chr(ord($bytes[6]) & 0x0f | 0x40);
+            $bytes[8] = chr(ord($bytes[8]) & 0x3f | 0x80);
+            return strtoupper(bin2hex($bytes));
+        }
+
+        // Fallback to WordPress secure function
+        return strtoupper(str_replace('-', '', wp_generate_uuid4()));
     }
 
     /**

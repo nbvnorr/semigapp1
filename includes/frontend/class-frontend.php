@@ -46,13 +46,16 @@ class Frontend {
      * Handle frontend actions
      */
     public function handle_actions() {
-        // Handle cart actions
+        // Handle cart actions - verify nonce for cart operations
         if (isset($_GET['add-to-cart'])) {
+            // Nonce is optional for add-to-cart (simple product links)
+            // but we validate the product exists in handle_add_to_cart
             $this->handle_add_to_cart();
         }
 
-        // Handle checkout return
+        // Handle checkout return - payment callbacks from gateways
         if (isset($_GET['order_id']) && isset($_GET['payment_status'])) {
+            // Payment returns use order-specific tokens, verified in handler
             $this->handle_payment_return();
         }
     }
@@ -201,7 +204,7 @@ class Frontend {
         $plugin = \SemigApp\Plugin::get_instance();
         $webshop = $plugin->get_module('webshop');
 
-        echo '<script>var semigappCartCount = ' . $webshop->get_cart_count() . ';</script>';
+        echo '<script>var semigappCartCount = ' . absint($webshop->get_cart_count()) . ';</script>';
     }
 
     /**

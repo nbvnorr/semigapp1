@@ -279,7 +279,10 @@ class Admin {
         $table = $wpdb->prefix . 'semigapp_orders';
 
         return (float) $wpdb->get_var(
-            "SELECT SUM(total) FROM $table WHERE payment_status = 'completed'"
+            $wpdb->prepare(
+                "SELECT SUM(total) FROM $table WHERE payment_status = %s",
+                'completed'
+            )
         );
     }
 

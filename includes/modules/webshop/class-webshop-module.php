@@ -1314,6 +1314,24 @@ class Webshop_Module extends Base_Module {
             return '<p>' . __('Order not found.', 'semigapp') . '</p>';
         }
 
+        // Verify order ownership - user must own the order or be a guest with matching session
+        if (is_user_logged_in()) {
+            if ($order->user_id && $order->user_id != get_current_user_id()) {
+                return '<p>' . __('You do not have permission to view this order.', 'semigapp') . '</p>';
+            }
+        } else {
+            // For guest orders, verify via session token if available
+            $session_token = isset($_GET['token']) ? sanitize_text_field($_GET['token']) : '';
+            $expected_token = hash_hmac('sha256', $order->id . '|' . $order->email, wp_salt('auth'));
+            if (empty($session_token) || !hash_equals($expected_token, $session_token)) {
+                // Allow viewing without token if order was just placed (within last 30 minutes)
+                $order_time = strtotime($order->created_at);
+                if (time() - $order_time > 1800) {
+                    return '<p>' . __('Please log in to view your order details.', 'semigapp') . '</p>';
+                }
+            }
+        }
+
         ob_start();
         include SEMIGAPP_PLUGIN_DIR . 'templates/frontend/shop/order-confirmation.php';
         return ob_get_clean();

@@ -1629,7 +1629,7 @@ class Events_Module extends Base_Module {
 
             if ($field->is_required && empty($value)) {
                 wp_send_json_error(array(
-                    'message' => sprintf(__('%s is required.', 'semigapp'), $field->field_label),
+                    'message' => sprintf(__('%s is required.', 'semigapp'), esc_html($field->field_label)),
                 ));
             }
 

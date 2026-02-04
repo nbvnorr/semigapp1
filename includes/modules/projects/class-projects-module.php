@@ -831,8 +831,8 @@ class Projects_Module extends Base_Module {
             wp_send_json_error(array('message' => __('You must be logged in to perform this action.', 'semigapp')));
         }
 
-        // Require edit capability for project operations
-        if (!current_user_can('edit_posts')) {
+        // Require manage projects capability or fallback to edit_posts for project operations
+        if (!current_user_can('manage_semigapp_projects') && !current_user_can('edit_posts')) {
             wp_send_json_error(array('message' => __('You do not have permission to perform this action.', 'semigapp')));
         }
 
